@@ -65,10 +65,10 @@ class FakeGcp:
                                                 "train": {"spec": "gs://b/pipes/train/v1/train_pipeline.json",
                                                           "params": "gs://b/pipes/train/v1/train_params.json"}},
             ("b", "pipes/train/v1/train_pipeline.json"): SPEC,
-            ("b", "pipes/train/v1/train_params.json"): {"parameter_values": {"model": "roas_d90"}}}
+            ("b", "pipes/train/v1/train_params.json"): {"parameter_values": {"model": "forecast_90d"}}}
         self.job = {"name": "projects/p/locations/r/pipelineJobs/run-1", "pipelineSpec": SPEC, "jobDetail": {"taskDetails": [
             {"taskName": "prepare-op", "state": "SUCCEEDED", "startTime": "2026-01-01T00:00:00Z", "endTime": "2026-01-01T00:05:00Z",
-             "execution": {"state": "CACHED", "metadata": {"input:model": "roas_d90", "output:uri": "gs://b/data"}},
+             "execution": {"state": "CACHED", "metadata": {"input:model": "forecast_90d", "output:uri": "gs://b/data"}},
              "outputs": {"report": {"artifacts": [{"name": "a/1", "uri": "gs://b/verdict.md", "schemaTitle": "system.Markdown"}]}},
              "executorDetail": {"containerDetail": {"mainJob": "projects/p/locations/r/customJobs/42"}}}]}}
         self.log_filters = []
@@ -101,14 +101,14 @@ def gcp(monkeypatch):
 def test_the_definition_is_the_published_pipeline_with_the_values_the_task_passes(gcp):
     d = PV.definition(gcp, "retrain", "train")
     assert d["version"] == "v1" and d["name"] == "train"
-    assert {p["name"]: (p["value"], p["default"]) for p in d["parameters"]} == {"model": ("roas_d90", None), "force": (None, "")}
+    assert {p["name"]: (p["value"], p["default"]) for p in d["parameters"]} == {"model": ("forecast_90d", None), "force": (None, "")}
     assert set(d["steps"]) == {"prepare-op", "condition-1", "train-op"}
     assert all(n["state"] is None for n in d["nodes"])
 
 
 def test_a_run_step_has_its_values_artifacts_cache_logs_and_compute(gcp):
     s = PV.step(gcp, "retrain", "e1", "train", "prepare-op")
-    assert s["inputs"] == {"model": "roas_d90"} and s["outputs"] == {"uri": "gs://b/data"} and s["cached"]
+    assert s["inputs"] == {"model": "forecast_90d"} and s["outputs"] == {"uri": "gs://b/data"} and s["cached"]
     assert s["output_artifacts"][0]["name"] == "report" and s["output_artifacts"][0]["text"]
     assert s["logs"][0]["text"] == "fitting" and 'job_id="42"' in gcp.log_filters[0] and "timestamp>=" in gcp.log_filters[0]
     assert s["compute"]["name"].endswith("customJobs/42") and s["component"]["key"] == "prepare-op"

@@ -172,7 +172,7 @@ class ModelGcp:
 
 def test_a_version_page_names_what_it_read_what_it_fit_on_and_what_differs():
     from gcpbricks.console import ml as M
-    rec = {"read": ["spend", "installs", "country"], "model_inputs": {"default": ["spend_x2", "installs"]},
+    rec = {"read": ["spend", "signups", "country"], "model_inputs": {"default": ["spend_x2", "signups"]},
            "computed": ["spend_x2"], "sources": {"read": "feature_manager fetch_columns"}}
     got = M.version_features(ModelGcp({"features.json": json.dumps(rec)}), "1", "3")
     assert got["logged"] and got["read_not_fit"] == ["spend", "country"] and got["fit_not_read"] == ["spend_x2"]

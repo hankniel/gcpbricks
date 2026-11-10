@@ -3,7 +3,7 @@
 Every op here works within a row: an elementwise op maps each cell on its own, a row
 reduction collapses one row's matrix into that row's scalar, and a row map turns a row
 into another row (residuals, differences, a slice). Nothing reduces ACROSS
-rows, so an expression's value for a cohort never depends on which other cohorts share
+rows, so an expression's value for a segment never depends on which other segments share
 the batch -- that is what lets serving score in chunks. A statistic across rows is a
 `fit:` entry instead (see steps.py), computed once at fit time and frozen.
 """

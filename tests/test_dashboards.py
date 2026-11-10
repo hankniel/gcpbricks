@@ -83,7 +83,7 @@ def test_a_dataset_needs_a_time_column_to_bin():
             "widgets": [{"title": "x", "type": "line", "dataset": "acc", "measure": "avg(mape)", "bin": "1d"}]}
     with pytest.raises(ValidationError, match="no time column"):
         DashboardSpec.model_validate(spec)
-    spec["datasets"]["acc"]["time"] = "install_date"
+    spec["datasets"]["acc"]["time"] = "snapshot_date"
     assert DashboardSpec.model_validate(spec).widgets[0].field == "mape"
 
 

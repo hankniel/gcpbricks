@@ -4,7 +4,7 @@ deploy` (the `[pipelines]` extra: kfp 2):
     vertex_pipeline_task:
       python_file: training/pipeline.py     # a function decorated with @dsl.pipeline
       function: pipeline                    # its name, default "pipeline"
-      base_parameters: {model: roas_d30}    # the published parameter values
+      base_parameters: {model: forecast_30d}    # the published parameter values
 
 Steps run the task's environment image and import the project's code from the bundle:
 

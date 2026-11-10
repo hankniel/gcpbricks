@@ -295,7 +295,7 @@ def test_a_repair_keeps_a_task_it_did_not_pick_and_a_run_fails_by_its_leaf_tasks
 
 
 def test_a_pipeline_runs_id_is_one_vertex_accepts():
-    # A task_key like roas_d30 holds "_", which Vertex refuses in a pipeline job id.
+    # A task_key like forecast_30d holds "_", which Vertex refuses in a pipeline job id.
     text = (WORKFLOWS / "vertex_pipeline.yaml").read_text()
     line = next(ln for ln in text.splitlines() if "- run_id:" in ln)
     assert 'text.replace_all(text.to_lower(args.job + "-" + args.target), "_", "-")' in line

@@ -30,7 +30,7 @@ def test_a_spec_with_its_spine_runs_from_the_spec_alone(data):  # noqa: F811
     for c in ("rev_cum", "rev_after"):
         np.testing.assert_allclose(got[c].astype(float), want[c].astype(float), equal_nan=True)
 
-    key = ["cohort", "install_date", "age"]
+    key = ["segment", "snapshot_date", "age"]
     spec_plan, by_python = compile_spec(ROLLING_SPEC), compile_spec(ROLLING)
     rolling = fs.training_set_from_spec(spec_plan).load_df().sort_values(key, ignore_index=True)
     bfv = fs.batch_feature_view("r", "lng", by_python.sql_stage(), at_days=0)
@@ -101,7 +101,7 @@ def test_explain_says_each_features_days():
     said = dict(explain({**SPEC, "spine": "fs_c"}))
     assert "decision day a in [1, 3] x horizon H in [5, 6]" in said["rows"]
     assert "sum of rev in lng, D(a-1)..Da" in said["rev_sum_2d"]
-    assert said["rev_d1"].startswith("max of rev in lng, D1,") and said["rev_d1"].endswith("NULL")
+    assert said["val_d1"].startswith("max of rev in lng, D1,") and said["val_d1"].endswith("NULL")
     assert "D(a+1)..DH" in said["rev_after"]
     wide = dict(explain({"spine": "fs_c", "decision": {"at_days": 7}, "aggregations": [
         {"source": "lng", "input": "rev", "function": "sum", "time_window": "3d", "over": ["age"]}]}))
@@ -109,6 +109,6 @@ def test_explain_says_each_features_days():
 
 
 def test_preview_drops_the_hash_prefix():
-    df = pd.DataFrame({"__sql_0123456789ab__roas": [1.0], "geo": ["us"],
+    df = pd.DataFrame({"__sql_0123456789ab__forecast": [1.0], "geo": ["us"],
                        "__sql_0123456789ab__x": [1.0], "__sql_ba9876543210__x": [2.0]})
-    assert list(preview(df).columns) == ["roas", "geo", "__sql_0123456789ab__x", "__sql_ba9876543210__x"]
+    assert list(preview(df).columns) == ["forecast", "geo", "__sql_0123456789ab__x", "__sql_ba9876543210__x"]

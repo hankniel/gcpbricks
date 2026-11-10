@@ -42,9 +42,9 @@ PIPELINE = textwrap.dedent('''
 def _bundle(tmp_path, task=None) -> B.Loaded:
     (tmp_path / "training").mkdir(exist_ok=True)
     (tmp_path / "training" / "pipeline.py").write_text(PIPELINE)
-    task = task or {"python_file": "training/pipeline.py", "base_parameters": {"model": "roas_d30"}}
+    task = task or {"python_file": "training/pipeline.py", "base_parameters": {"model": "forecast_30d"}}
     raw = {**BASE, "resources": {"jobs": {"retrain": {"tasks": [
-        {"task_key": "roas_d30", "vertex_pipeline_task": task}]}}}}
+        {"task_key": "forecast_30d", "vertex_pipeline_task": task}]}}}}
     (tmp_path / "mlops.yaml").write_text(yaml.safe_dump(raw))
     return B.load(tmp_path / "mlops.yaml", "dev")
 
@@ -77,13 +77,13 @@ def test_the_published_parameters_carry_the_run_settings(tmp_path):
     lb = _bundle(tmp_path)
     task = lb.bundle.resources.jobs["retrain"].tasks[0]
     assert B.pipeline_params(lb, "retrain", task) == {
-        "display_name": "demo-retrain-roas-d30",
-        "labels": {"mlops_bundle": "demo", "mlops_target": "dev", "mlops_task": "roas-d30"},
-        "pipeline_root": "gs://b/dev/.bundle/demo/pipeline_root/retrain-roas_d30",
+        "display_name": "demo-retrain-forecast-30d",
+        "labels": {"mlops_bundle": "demo", "mlops_target": "dev", "mlops_task": "forecast-30d"},
+        "pipeline_root": "gs://b/dev/.bundle/demo/pipeline_root/retrain-forecast_30d",
         "service_account": "sa@p.iam.gserviceaccount.com",
-        "parameter_values": {"model": "roas_d30"}}
-    arg = B.job_definition(lb, "retrain")["tasks"]["roas_d30"]["argument"]
-    assert arg["spec_prefix"] == "dev/.bundle/demo/pipelines/retrain-roas_d30"
+        "parameter_values": {"model": "forecast_30d"}}
+    arg = B.job_definition(lb, "retrain")["tasks"]["forecast_30d"]["argument"]
+    assert arg["spec_prefix"] == "dev/.bundle/demo/pipelines/retrain-forecast_30d"
     assert B.needs_files(lb.bundle.resources.jobs["retrain"])
 
 
@@ -93,11 +93,11 @@ def test_deploy_compiles_and_publishes_a_python_file_pipeline(tmp_path, monkeypa
     out = tmp_path / "out"
     task = lb.bundle.resources.jobs["retrain"].tasks[0]
     assert cli._publish_pipeline(lb, "retrain", task, IMAGE, "v1", out) == 0
-    base = out / "dev/.bundle/demo/pipelines/retrain-roas_d30"
+    base = out / "dev/.bundle/demo/pipelines/retrain-forecast_30d"
     current = json.loads((base / "current.json").read_text())
     assert current["image"] == IMAGE and set(current) == {"version", "image", "train"}
     params = json.loads((base / "v1" / "train_params.json").read_text())
-    assert params["parameter_values"] == {"model": "roas_d30"}
+    assert params["parameter_values"] == {"model": "forecast_30d"}
     spec = json.loads((base / "v1" / "train_pipeline.json").read_text())
     assert spec["pipelineInfo"]["name"] == "train"
 

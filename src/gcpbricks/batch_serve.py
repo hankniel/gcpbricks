@@ -8,16 +8,16 @@ score_batch and then writes where it likes:
     from gcpbricks import batch_serve
 
     w = batch_serve.window()                                  # the run's model, dates and start
-    model = batch_serve.load_model("models:/roas_d30@champion")
+    model = batch_serve.load_model("models:/forecast_30d@champion")
     for f, t in batch_serve.task_chunks(w.from_date, w.to_date, chunk_days=7):
         rows = batch_serve.read_window("ml_feature_store.fs_demo_features", f, t,
-                                       date_col="install_date", as_of_ms=w.started_ms)
-        preds = batch_serve.score_batch(model, rows, prediction_col="predicted_roas_d30",
-                                        keep_columns=["install_date", "campaign_id"])
+                                       date_col="snapshot_date", as_of_ms=w.started_ms)
+        preds = batch_serve.score_batch(model, rows, prediction_col="predicted_forecast_30d",
+                                        keep_columns=["snapshot_date", "campaign_id"])
         # ... any post-processing ...
-        batch_serve.write_window(preds, "p.ml_predictions.roas_d30_predictions", f, t,
-                                 date_col="install_date", entity_id_columns=["install_date", "campaign_id"],
-                                 prediction_col="predicted_roas_d30")
+        batch_serve.write_window(preds, "p.ml_predictions.forecast_30d_predictions", f, t,
+                                 date_col="snapshot_date", entity_id_columns=["snapshot_date", "campaign_id"],
+                                 prediction_col="predicted_forecast_30d")
         batch_serve.chunk_done(f, t)                          # a repair skips it
 
 A repair of a failed run (`mlops bundle repair`) runs a failed model again with the run's

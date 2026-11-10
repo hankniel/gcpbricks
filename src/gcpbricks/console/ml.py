@@ -99,7 +99,7 @@ def _list_models(gcp) -> list[dict]:
 
 
 def model_experiment(model_name: str) -> str:
-    """The experiment a model's training logs to: its name with - for _ (roas_d90 -> roas-d90);
+    """The experiment a model's training logs to: its name with - for _ (forecast_90d -> forecast-90d);
     each version's training run is named by the version's model_id label."""
     return model_name.replace("_", "-")
 

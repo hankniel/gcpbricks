@@ -52,7 +52,7 @@ flowchart LR
   name (storage prefix, `-<target>` on resource names). A dev run cannot touch prod objects
   by construction.
 - **Compose existing services.** Workflows, Scheduler, Cloud Run, Vertex AI, BigQuery, dbt,
-  Feast's point-in-time join, Iceberg. The platform is the glue and the interface, not a
+  Feast's point-in-time join, and BigQuery or Spark (Iceberg, Parquet) tables. The platform is the glue and the interface, not a
   new engine.
 - **Tables are written once, read in place.** The feature store has no copy step and no
   registry to deploy: it builds throwaway Feast objects from a JSON of feature groups on every

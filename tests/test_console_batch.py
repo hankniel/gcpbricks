@@ -8,8 +8,8 @@ import pytest
 from gcpbricks.console import batch as B
 from gcpbricks.console import service as S
 
-ARG = {"job": "nightly-score", "target": "dev", "region": "r", "models": [{"model": "roas_d90", "job": "d90-dev"},
-       {"model": "roas_d30", "job": "d30-dev", "window_days": 7}], "window_days": 30, "utc_offset_hours": 7,
+ARG = {"job": "nightly-score", "target": "dev", "region": "r", "models": [{"model": "forecast_90d", "job": "d90-dev"},
+       {"model": "forecast_30d", "job": "d30-dev", "window_days": 7}], "window_days": 30, "utc_offset_hours": 7,
        "max_hours": 2, "service_account": "sa"}
 DEFINITION = {"tasks": {
     "features": {"type": "cloud_run", "run_job": "x", "args": ["mlops-task", "dbt", "build"]},
@@ -35,7 +35,7 @@ class FakeGcp:
 
     def executions(self, workflow, n):
         self.asked.append((workflow, n))
-        return [_ex(2, "FAILED", 'serving failed for: ["roas_d90"]'), _ex(1, "SUCCEEDED")]
+        return [_ex(2, "FAILED", 'serving failed for: ["forecast_90d"]'), _ex(1, "SUCCEEDED")]
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +47,7 @@ def jobs(monkeypatch):
 def test_only_batch_serve_tasks_are_listed():
     [t] = B.tasks(FakeGcp())
     assert (t["task"], t["window_days"], t["last_run"]) == ("score", 30, None)
-    assert [m["model"] for m in t["models"]] == ["roas_d90", "roas_d30"]
+    assert [m["model"] for m in t["models"]] == ["forecast_90d", "forecast_30d"]
 
 
 def test_a_task_shows_its_models_settings_and_its_jobs_runs():
@@ -55,7 +55,7 @@ def test_a_task_shows_its_models_settings_and_its_jobs_runs():
     t = B.task(gcp, "b-nightly-dev", "score")
     assert gcp.asked == [("b-nightly-dev", B.RUNS_LIMIT)]
     assert [(r["id"], r["state"]) for r in t["runs"]] == [("e2", "FAILED"), ("e1", "SUCCEEDED")]
-    assert "roas_d90" in t["runs"][0]["error_message"]
+    assert "forecast_90d" in t["runs"][0]["error_message"]
     assert t["settings"] == {"window_days": 30, "max_hours": 2, "utc_offset_hours": 7, "region": "r"}
 
 

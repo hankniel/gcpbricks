@@ -68,7 +68,7 @@ class AggregationSpec(BaseModel):
     entity's rows of `source` in `time_window`."""
     model_config = ConfigDict(extra="forbid")
 
-    #: Default: "{input}_{function}_{window}", e.g. total_rev_sum_3d.
+    #: Default: "{input}_{function}_{window}", e.g. total_val_sum_3d.
     name: str | None = None
     #: A feature view whose keys the spine carries and whose timestamp orders its rows.
     source: str = Field(min_length=1)

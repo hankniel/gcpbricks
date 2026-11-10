@@ -50,7 +50,7 @@ def vertex(tmp_path, monkeypatch):
     monkeypatch.setenv("MLFLOW_ARTIFACT_ROOT", str(tmp_path))
     monkeypatch.setattr(mlflow, "_backends", {"vertex://p/us-central1": fake})
     monkeypatch.setattr(mlflow, "_runs", [])
-    mlflow.set_experiment("roas-d30-hpt")
+    mlflow.set_experiment("forecast-30d-hpt")
     return fake
 
 
@@ -94,7 +94,7 @@ def test_a_failing_trial_fails_the_sweep_and_both_runs_are_logged_failed(vertex)
     assert mlflow.active_run() is None
 
 
-def _champion(name, run_name, params, space, *, experiment="roas-d30", tags=None, run_id=True):
+def _champion(name, run_name, params, space, *, experiment="forecast-30d", tags=None, run_id=True):
     """A training run that logged its params, its version registered and made @champion."""
     mlflow.set_experiment(experiment)
     with mlflow.start_run(run_name=run_name):
@@ -105,36 +105,36 @@ def _champion(name, run_name, params, space, *, experiment="roas-d30", tags=None
 
 
 def test_a_retrain_takes_the_champions_tuned_params(vertex):
-    _champion("roas_d30", "v1", {"x": 2.5, "depth": 3, "loss": "l2"}, SPACE)
-    params, source = tuning.champion_params("roas_d30", SPACE)
+    _champion("forecast_30d", "v1", {"x": 2.5, "depth": 3, "loss": "l2"}, SPACE)
+    params, source = tuning.champion_params("forecast_30d", SPACE)
     assert params == {"x": 2.5, "depth": 3, "loss": "l2"} and type(params["depth"]) is int
     assert source == "champion v1"
 
 
 def test_defaults_when_no_champion_or_the_space_changed(vertex):
-    assert tuning.champion_params("roas_d30", SPACE) == ({}, "defaults")
-    _champion("roas_d30", "v1", {"x": 2.5, "depth": 3, "loss": "l2"}, SPACE)
+    assert tuning.champion_params("forecast_30d", SPACE) == ({}, "defaults")
+    _champion("forecast_30d", "v1", {"x": 2.5, "depth": 3, "loss": "l2"}, SPACE)
     wider = SPACE | {"x": {"type": "double", "min": 0.0, "max": 9.0}}
-    assert tuning.champion_params("roas_d30", wider) == ({}, "defaults")
+    assert tuning.champion_params("forecast_30d", wider) == ({}, "defaults")
 
 
 def test_a_version_registered_outside_the_sdk_is_found_by_its_model_id(vertex):
     # demo_model: a version labelled model_id, its run named so in the model's experiment.
-    _champion("roas_d30", "v7", {"x": 1.0, "depth": 2, "loss": "l1"}, SPACE, tags={"model_id": "v7"}, run_id=False)
-    assert tuning.champion_params("roas_d30", SPACE)[0] == {"x": 1.0, "depth": 2, "loss": "l1"}
+    _champion("forecast_30d", "v7", {"x": 1.0, "depth": 2, "loss": "l1"}, SPACE, tags={"model_id": "v7"}, run_id=False)
+    assert tuning.champion_params("forecast_30d", SPACE)[0] == {"x": 1.0, "depth": 2, "loss": "l1"}
 
 
 def test_a_dev_run_reads_prods_champion(vertex, monkeypatch):
-    _champion("roas_d30", "v1", {"x": 2.5, "depth": 3, "loss": "l2"}, SPACE)
+    _champion("forecast_30d", "v1", {"x": 2.5, "depth": 3, "loss": "l2"}, SPACE)
     monkeypatch.setenv("MLOPS_TARGET", "dev")
-    assert tuning.champion_params("roas_d30_dev", SPACE)[1] == "champion v1"
-    assert tuning.champion_params("roas_d30_dev", SPACE, prod=False) == ({}, "defaults")
+    assert tuning.champion_params("forecast_30d_dev", SPACE)[1] == "champion v1"
+    assert tuning.champion_params("forecast_30d_dev", SPACE, prod=False) == ({}, "defaults")
 
 
 def test_studies_round_trip_through_the_champion(vertex):
     space = {"a": {"x": SPACE["x"]}, "b": {"depth": SPACE["depth"]}}
-    _champion("roas_d30", "v1", {"a": {"x": 4.0}, "b": {"depth": 2}}, space)
-    assert tuning.champion_params("roas_d30", space)[0] == {"a": {"x": 4.0}, "b": {"depth": 2}}
+    _champion("forecast_30d", "v1", {"a": {"x": 4.0}, "b": {"depth": 2}}, space)
+    assert tuning.champion_params("forecast_30d", space)[0] == {"a": {"x": 4.0}, "b": {"depth": 2}}
     assert vertex.runs["v1"]["params"]["a.x"] == 4.0
 
 

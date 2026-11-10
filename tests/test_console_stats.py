@@ -54,10 +54,10 @@ def test_a_platform_bigquery_client_labels_its_jobs_with_the_execution(monkeypat
     bigquery = pytest.importorskip("google.cloud.bigquery")
     made = {}
     monkeypatch.setattr(bigquery, "Client", lambda **kw: made.update(kw) or "client")
-    monkeypatch.setenv("CLOUD_RUN_EXECUTION", "Serve-ROAS-x7k2")
+    monkeypatch.setenv("CLOUD_RUN_EXECUTION", "Serve-ratio-x7k2")
     assert job_labels.bigquery_client(project="p") == "client"
-    assert made["default_query_job_config"].labels == {"mlops_exec": "serve-roas-x7k2"}
-    assert made["default_load_job_config"].labels == {"mlops_exec": "serve-roas-x7k2"}
+    assert made["default_query_job_config"].labels == {"mlops_exec": "serve-ratio-x7k2"}
+    assert made["default_load_job_config"].labels == {"mlops_exec": "serve-ratio-x7k2"}
     made.clear()
     monkeypatch.delenv("CLOUD_RUN_EXECUTION")
     monkeypatch.delenv("CLOUD_ML_JOB_ID", raising=False)
@@ -169,6 +169,6 @@ def test_a_served_models_executions_are_those_its_run_started():
     g = SimpleNamespace(run_executions=lambda job, n: [
         {"name": f"{job}/e1", "createTime": "2026-01-01T00:05:00Z"},
         {"name": f"{job}/e0", "createTime": "2025-12-31T00:00:00Z"}])
-    spec = {"argument": {"models": [{"model": "roas", "job": "serve-roas"}, {"model": "v", "vertex": {}}]}}
+    spec = {"argument": {"models": [{"model": "forecast", "job": "serve-forecast"}, {"model": "v", "vertex": {}}]}}
     got = ST._served_executions(g, spec, {"start": "2026-01-01T00:00:00Z", "end": "2026-01-01T01:00:00Z"})
-    assert [(m, x["name"]) for m, x in got] == [("roas", "serve-roas/e1")]
+    assert [(m, x["name"]) for m, x in got] == [("forecast", "serve-forecast/e1")]

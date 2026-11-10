@@ -16,20 +16,20 @@ BASE = {
     "targets": {"dev": {"mode": "development", "default": True}, "prod": {"mode": "production"}},
 }
 RESOURCES = {
-    "experiments": {"roas": {"name": "roas-d30"}},
-    "registered_models": {"roas": {"name": "roas_d30", "comment": "ROAS at day 30"}},
-    "model_serving_endpoints": {"roas": {
-        "name": "roas-online",
+    "experiments": {"forecast": {"name": "forecast-30d"}},
+    "registered_models": {"forecast": {"name": "forecast_30d", "comment": "Forecast at day 30"}},
+    "model_serving_endpoints": {"forecast": {
+        "name": "forecast-online",
         "config": {"served_entities": [
-            {"name": "main", "entity_name": "${resources.registered_models.roas.name}", "entity_version": "3"},
-            {"name": "canary", "entity_name": "${resources.registered_models.roas.name}",
+            {"name": "main", "entity_name": "${resources.registered_models.forecast.name}", "entity_version": "3"},
+            {"name": "canary", "entity_name": "${resources.registered_models.forecast.name}",
              "entity_version": "4", "workload_size": "Medium", "workload_type": "GPU_SMALL"}],
             "traffic_config": {"routes": [
                 {"served_entity_name": "main", "traffic_percentage": 90},
                 {"served_entity_name": "canary", "traffic_percentage": 10}]}},
         "tags": [{"key": "team", "value": "ua"}]}},
     "jobs": {"train": {"tasks": [{"task_key": "t", "dbt_task": {
-        "schema": "s", "commands": ["dbt build --vars experiment=${resources.experiments.roas.name}"]}}]}},
+        "schema": "s", "commands": ["dbt build --vars experiment=${resources.experiments.forecast.name}"]}}]}},
 }
 
 
@@ -41,17 +41,17 @@ def _load(tmp_path, resources=RESOURCES, target="dev") -> B.Loaded:
 
 def test_names_follow_the_target_as_demo_model_names_them(tmp_path):
     dev, prod = B.ml_plan(_load(tmp_path)), B.ml_plan(_load(tmp_path, target="prod"))
-    assert dev["experiments"] == ["roas-d30-dev"] and prod["experiments"] == ["roas-d30"]
-    assert dev["registered_models"][0]["display_name"] == "roas_d30_dev"
-    assert prod["registered_models"][0]["display_name"] == "roas_d30"
-    assert dev["model_serving_endpoints"][0]["display_name"] == "roas-online-dev"
+    assert dev["experiments"] == ["forecast-30d-dev"] and prod["experiments"] == ["forecast-30d"]
+    assert dev["registered_models"][0]["display_name"] == "forecast_30d_dev"
+    assert prod["registered_models"][0]["display_name"] == "forecast_30d"
+    assert dev["model_serving_endpoints"][0]["display_name"] == "forecast-online-dev"
 
 
 def test_resource_references_resolve_to_the_targets_names(tmp_path):
     lb = _load(tmp_path)
     assert lb.bundle.resources.jobs["train"].tasks[0].dbt_task.commands == [
-        "dbt build --vars experiment=roas-d30-dev"]
-    assert lb.bundle.resources.model_serving_endpoints["roas"].config.served_entities[0].entity_name == "roas_d30_dev"
+        "dbt build --vars experiment=forecast-30d-dev"]
+    assert lb.bundle.resources.model_serving_endpoints["forecast"].config.served_entities[0].entity_name == "forecast_30d_dev"
 
 
 def test_served_entities_size_vertex_by_the_workload_table(tmp_path):
@@ -172,16 +172,16 @@ def _plan(tmp_path):
 
 
 def test_apply_creates_the_endpoint_and_splits_traffic(tmp_path):
-    vx = FakeVertex(models=["roas_d30_dev"])
+    vx = FakeVertex(models=["forecast_30d_dev"])
     ml.apply(_plan(tmp_path), vx, {"mlops_bundle": "demo", "mlops_target": "dev"}, log=_quiet)
-    assert vx.experiments == {"roas-d30-dev"}
+    assert vx.experiments == {"forecast-30d-dev"}
     deploys = [c for c in vx.calls if c[0] == "deploy"]
     assert deploys == [("deploy", "main", "3", 100), ("deploy", "canary", "4", 0)]
-    assert vx.endpoints["roas-online-dev"]["traffic"] == {"d1": 90, "d2": 10}
+    assert vx.endpoints["forecast-online-dev"]["traffic"] == {"d1": 90, "d2": 10}
 
 
 def test_a_second_apply_changes_nothing_deployed(tmp_path):
-    vx = FakeVertex(models=["roas_d30_dev"])
+    vx = FakeVertex(models=["forecast_30d_dev"])
     ml.apply(_plan(tmp_path), vx, {}, log=_quiet)
     vx.calls.clear()
     ml.apply(_plan(tmp_path), vx, {}, log=_quiet)
@@ -189,16 +189,16 @@ def test_a_second_apply_changes_nothing_deployed(tmp_path):
 
 
 def test_a_new_version_deploys_before_the_old_one_leaves(tmp_path):
-    vx = FakeVertex(models=["roas_d30_dev"])
+    vx = FakeVertex(models=["forecast_30d_dev"])
     ml.apply(_plan(tmp_path), vx, {}, log=_quiet)
     vx.calls.clear()
     moved = dict(RESOURCES)
-    moved["model_serving_endpoints"] = {"roas": {"name": "roas-online", "config": {"served_entities": [
-        {"entity_name": "roas_d30_dev", "entity_version": "4"}]}}}
+    moved["model_serving_endpoints"] = {"forecast": {"name": "forecast-online", "config": {"served_entities": [
+        {"entity_name": "forecast_30d_dev", "entity_version": "4"}]}}}
     ml.apply(B.ml_plan(_load(tmp_path, moved)), vx, {}, log=_quiet)
     kinds = [c[0] for c in vx.calls if c[0] in ("deploy", "set_traffic", "undeploy")]
     assert kinds == ["deploy", "set_traffic", "undeploy", "undeploy"]
-    assert [d["display_name"] for d in vx.endpoints["roas-online-dev"]["deployed"]] == ["roas_d30_dev-4"]
+    assert [d["display_name"] for d in vx.endpoints["forecast-online-dev"]["deployed"]] == ["forecast_30d_dev-4"]
 
 
 def test_an_endpoint_on_an_unregistered_model_fails(tmp_path):
@@ -208,9 +208,9 @@ def test_an_endpoint_on_an_unregistered_model_fails(tmp_path):
 
 def test_aliases_move_only_when_they_point_elsewhere(tmp_path):
     res = dict(RESOURCES, model_serving_endpoints={})
-    res["registered_models"] = {"roas": {"name": "roas_d30", "aliases": [
+    res["registered_models"] = {"forecast": {"name": "forecast_30d", "aliases": [
         {"alias_name": "champion", "version_num": 3}, {"alias_name": "stable", "version_num": 2}]}}
-    vx = FakeVertex(models=["roas_d30_dev"], aliases={"projects/p/models/0": {"3": ["champion"]}})
+    vx = FakeVertex(models=["forecast_30d_dev"], aliases={"projects/p/models/0": {"3": ["champion"]}})
     ml.apply(B.ml_plan(_load(tmp_path, res)), vx, {}, log=_quiet)
     assert [c for c in vx.calls if c[0] == "move_alias"] == [("move_alias", "stable", "2")]
 
@@ -219,10 +219,10 @@ def test_what_the_bundle_no_longer_declares_is_retired_not_deleted(tmp_path):
     labels = {"mlops_bundle": "demo", "mlops_target": "dev"}
     old = {"id": "ep-old", "labels": labels, "deployed": [
         {"id": "a", "display_name": "a"}, {"id": "b", "display_name": "b"}]}
-    vx = FakeVertex(models=["roas_d30_dev", "churn_dev"], endpoints={"old-dev": old})
-    previous = {"experiments": {"roas": "roas-d30-dev", "churn": "churn-dev"},
-                "registered_models": {"roas": "roas_d30_dev", "churn": "churn_dev"},
-                "model_serving_endpoints": {"roas": "roas-online-dev"}}
+    vx = FakeVertex(models=["forecast_30d_dev", "churn_dev"], endpoints={"old-dev": old})
+    previous = {"experiments": {"forecast": "forecast-30d-dev", "churn": "churn-dev"},
+                "registered_models": {"forecast": "forecast_30d_dev", "churn": "churn_dev"},
+                "model_serving_endpoints": {"forecast": "forecast-online-dev"}}
     retired = ml.apply(_plan(tmp_path), vx, labels, previous, "2026-10-19", log=_quiet)
     assert retired == ["experiment churn-dev", "model churn_dev", "endpoint old-dev"]
     assert "old-dev" in vx.endpoints and vx.endpoints["old-dev"]["deployed"] == []
@@ -232,10 +232,10 @@ def test_what_the_bundle_no_longer_declares_is_retired_not_deleted(tmp_path):
 
 
 def test_declaring_a_retired_resource_again_lifts_its_label(tmp_path):
-    vx = FakeVertex(models=["roas_d30_dev"])
+    vx = FakeVertex(models=["forecast_30d_dev"])
     ml.apply(_plan(tmp_path), vx, {}, log=_quiet)
     lifted = {(c[1], c[2]) for c in vx.calls if c[0] == "set_retired" and c[3] is None}
-    assert lifted == {("experiment", "roas-d30-dev"), ("model", "roas_d30_dev")}
+    assert lifted == {("experiment", "forecast-30d-dev"), ("model", "forecast_30d_dev")}
 
 
 def test_retiring_keeps_the_other_labels_and_the_first_date():

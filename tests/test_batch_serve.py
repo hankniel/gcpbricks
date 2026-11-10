@@ -21,11 +21,11 @@ BASE = {"bundle": {"name": "demo", "mlops_version": "0.4.0"},
         "gcp": {"project": "p", "bucket": "b"},
         "run_as": {"service_principal_name": "sa@p.iam.gserviceaccount.com"},
         "targets": {"dev": {"default": True}, "prod": {}}}
-SERVE = {"window_days": 14, "models": [{"model": "roas_d30", "job": "roas-d30-predict"},
-                                       {"model": "roas_d90", "job": "roas-d90-predict",
+SERVE = {"window_days": 14, "models": [{"model": "forecast_30d", "job": "forecast-30d-predict"},
+                                       {"model": "forecast_90d", "job": "forecast-90d-predict",
                                         "window_days": 45}]}
-VERTEX = {"registered_model": "roas", "date_col": "install_date", "input_table": "p.fs.features", "output_table": "p.preds.roas",
-          "prediction_col": "pred", "entity_id_columns": ["install_date", "campaign"]}
+VERTEX = {"registered_model": "forecast", "date_col": "snapshot_date", "input_table": "p.fs.features", "output_table": "p.preds.forecast",
+          "prediction_col": "pred", "entity_id_columns": ["snapshot_date", "campaign"]}
 
 
 def _steps(sub: str) -> dict:
@@ -50,8 +50,8 @@ def _argument(target: str, **serve) -> dict:
 
 def test_args_name_the_targets_own_jobs():
     prod, dev = _argument("prod"), _argument("dev")
-    assert [m["job"] for m in prod["models"]] == ["roas-d30-predict", "roas-d90-predict"]
-    assert [m["job"] for m in dev["models"]] == ["roas-d30-predict-dev", "roas-d90-predict-dev"]
+    assert [m["job"] for m in prod["models"]] == ["forecast-30d-predict", "forecast-90d-predict"]
+    assert [m["job"] for m in dev["models"]] == ["forecast-30d-predict-dev", "forecast-90d-predict-dev"]
     assert [(m["from_days"], m["to_days"]) for m in prod["models"]] == [(-14, 0), (-45, 0)]
     assert prod["job"] == "daily-serve"
 
@@ -63,22 +63,22 @@ def test_the_argument_is_only_what_running_the_models_needs():
 
 
 def test_a_vertex_model_names_its_input_and_output_tables():
-    arg = _argument("prod", models=[{"model": "roas", "vertex_batch_prediction": VERTEX}])
+    arg = _argument("prod", models=[{"model": "forecast", "vertex_batch_prediction": VERTEX}])
     v = arg["models"][0]["vertex"]
-    assert (v["input_table"], v["output_table"], v["version"]) == ("p.fs.features", "p.preds.roas", "@champion")
+    assert (v["input_table"], v["output_table"], v["version"]) == ("p.fs.features", "p.preds.forecast", "@champion")
 
 
 def test_a_vertex_model_reads_and_writes_its_declared_date_col():
-    arg = _argument("prod", models=[{"model": "roas", "vertex_batch_prediction": {**VERTEX, "date_col": "event_date"}}])
+    arg = _argument("prod", models=[{"model": "forecast", "vertex_batch_prediction": {**VERTEX, "date_col": "event_date"}}])
     assert arg["models"][0]["vertex"]["date_col"] == "event_date"
     workflow = (Path(B.__file__).parents[2] / "terraform/modules/bundle/workflows/batch_serve.yaml").read_text()
-    assert "install_date" not in workflow.split("steps:", 1)[1]
+    assert "snapshot_date" not in workflow.split("steps:", 1)[1]
     assert workflow.count("v.date_col") == 2
 
 
 def test_a_vertex_model_must_declare_its_date_col():
     with pytest.raises(Exception, match="date_col"):
-        _argument("prod", models=[{"model": "roas", "vertex_batch_prediction":
+        _argument("prod", models=[{"model": "forecast", "vertex_batch_prediction":
                                    {k: v for k, v in VERTEX.items() if k != "date_col"}}])
 
 
@@ -93,7 +93,7 @@ def test_the_runner_workflow_is_named_per_target():
     {"models": [{"model": "m", "job": "j", "window_days": 0}]},
     {"parameters": {"from": "2026-01-01"}},
     {"parameters": {"rerun_failed": "true"}},
-    {"models": [{"model": "m", "vertex_batch_prediction": {**VERTEX, "output_table": "preds.roas"}}]},
+    {"models": [{"model": "m", "vertex_batch_prediction": {**VERTEX, "output_table": "preds.forecast"}}]},
 ])
 def test_a_malformed_serve_task_is_rejected(bad):
     with pytest.raises(ValidationError):
@@ -172,7 +172,7 @@ def test_a_models_window_is_days_from_the_runs_date():
 
 
 def test_a_models_output_reaches_its_job_as_json():
-    out = {"mode": "insert_new", "keys": ["install_date", "user"], "stamps": {"predict_date": "run_date"}}
+    out = {"mode": "insert_new", "keys": ["snapshot_date", "user"], "stamps": {"predict_date": "run_date"}}
     m = _argument("prod", models=[{"model": "a", "job": "a-predict", "output": out}])["models"][0]
     assert B.ServeOutput.model_validate_json(m["output"]) == B.ServeOutput(**out)
     values = {e["name"]: e["value"] for e in _score_env()}

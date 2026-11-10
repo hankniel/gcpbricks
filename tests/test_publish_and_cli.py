@@ -349,5 +349,5 @@ def test_logs_drop_the_executor_input_dump_and_the_runtimes_warnings():
                ("t2", "INFO", "{"), ("t3", "INFO", '    "inputs": {'), ("t4", "INFO", "    }"), ("t5", "INFO", "}"),
                ("t6", "ERROR", "/x/_python_version_support.py:255: FutureWarning: You are using a Python version"),
                ("t7", "ERROR", "  warnings.warn(message, FutureWarning)"), ("t8", "INFO", "Job is running."),
-               ("t9", "INFO", "[cell_hit_rate] n_cohorts=1335022  n=0  n_cells=0"), ("t10", "INFO", " ")]
-    assert cli._quiet(entries) == [("t9", "INFO", "[cell_hit_rate] n_cohorts=1335022  n=0  n_cells=0")]
+               ("t9", "INFO", "[cell_hit_rate] n_segments=1335022  n=0  n_cells=0"), ("t10", "INFO", " ")]
+    assert cli._quiet(entries) == [("t9", "INFO", "[cell_hit_rate] n_segments=1335022  n=0  n_cells=0")]

@@ -17,9 +17,9 @@ BASE = {
     "run_as": {"service_principal_name": "sa@p.iam.gserviceaccount.com"},
     "targets": {"dev": {"mode": "development", "default": True}, "prod": {"mode": "production"}},
 }
-PREDICT = {"job_cluster_key": "roas-d90", "new_cluster": {
+PREDICT = {"job_cluster_key": "forecast-90d", "new_cluster": {
     "docker_image": {"url": "reg/predict-d90:abc"}, "node_type_id": "e2-standard-8", "num_workers": 4,
-    "spark_env_vars": {"MODEL": "roas_d90"}}}
+    "spark_env_vars": {"MODEL": "forecast_90d"}}}
 
 
 #: What every job cluster's code finds gcpbricks.mlflow configured with, on dev.
@@ -38,22 +38,22 @@ def _load(tmp_path: Path, resources: dict, target="dev") -> B.Loaded:
 
 
 def test_a_served_model_runs_on_its_job_cluster_which_the_platform_creates(tmp_path):
-    lb = _load(tmp_path, {"jobs": {"serve": _serve([{"model": "roas_d90", "job_cluster_key": "roas-d90"}])}})
+    lb = _load(tmp_path, {"jobs": {"serve": _serve([{"model": "forecast_90d", "job_cluster_key": "forecast-90d"}])}})
     plan = B.render(lb)
-    run_job = "demo-serve-roas-d90-dev"
+    run_job = "demo-serve-forecast-90d-dev"
     assert plan["run_jobs"][run_job] | {"labels": None} == {
-        "image": "reg/predict-d90:abc", "env": {**MLFLOW_DEV, "MODEL": "roas_d90"}, "tasks": 4,
+        "image": "reg/predict-d90:abc", "env": {**MLFLOW_DEV, "MODEL": "forecast_90d"}, "tasks": 4,
         "cpu": "8", "memory": "32Gi", "labels": None, "args": None}
     arg = B.job_definition(lb, "serve")["tasks"]["serve"]["argument"]
-    assert arg["models"] == [{"model": "roas_d90", "job": run_job, "from_days": -14, "to_days": 0}]
+    assert arg["models"] == [{"model": "forecast_90d", "job": run_job, "from_days": -14, "to_days": 0}]
 
 
 def test_a_clusters_own_env_overrides_the_mlflow_defaults(tmp_path):
     own = {**PREDICT, "new_cluster": {**PREDICT["new_cluster"],
                                        "spark_env_vars": {"MLFLOW_ARTIFACT_ROOT": "gs://elsewhere"}}}
-    lb = _load(tmp_path, {"jobs": {"serve": _serve([{"model": "roas_d90", "job_cluster_key": "roas-d90"}],
+    lb = _load(tmp_path, {"jobs": {"serve": _serve([{"model": "forecast_90d", "job_cluster_key": "forecast-90d"}],
                                                    clusters=(own,))}}, target="prod")
-    assert B.render(lb)["run_jobs"]["demo-serve-roas-d90"]["env"] == {
+    assert B.render(lb)["run_jobs"]["demo-serve-forecast-90d"]["env"] == {
         "MLFLOW_TRACKING_URI": "vertex://p/us-central1", "MLFLOW_ARTIFACT_ROOT": "gs://elsewhere"}
 
 
@@ -65,7 +65,7 @@ def test_a_served_model_may_still_name_an_existing_job(tmp_path):
 
 @pytest.mark.parametrize("model, message", [
     ({"model": "m"}, "give one of job_cluster_key, job or vertex_batch_prediction"),
-    ({"model": "m", "job": "x", "job_cluster_key": "roas-d90"}, "give one of job_cluster_key, job or vertex_batch_prediction"),
+    ({"model": "m", "job": "x", "job_cluster_key": "forecast-90d"}, "give one of job_cluster_key, job or vertex_batch_prediction"),
     ({"model": "m", "job_cluster_key": "nope"}, "not in job_clusters"),
 ])
 def test_a_served_model_names_exactly_one_runner_that_exists(tmp_path, model, message):
@@ -74,12 +74,12 @@ def test_a_served_model_names_exactly_one_runner_that_exists(tmp_path, model, me
 
 
 def test_schemas_are_datasets_named_per_target_and_referable(tmp_path):
-    res = {"schemas": {"predictions": {"name": "ml_predictions", "comment": "scored cohorts"}},
+    res = {"schemas": {"predictions": {"name": "ml_predictions", "comment": "scored segments"}},
            "jobs": {"serve": _serve([{"model": "m", "vertex_batch_prediction": {
                **VERTEX, "output_table": "p.${resources.schemas.predictions.name}.churn"}}], clusters=())}}
     dev = B.render(_load(tmp_path, res))
     assert dev["schemas"] == {"predictions": {"project": "p", "dataset_id": "ml_predictions_dev", "location": "us-central1",
-                                              "description": "scored cohorts",
+                                              "description": "scored segments",
                                               "labels": {"mlops_bundle": "demo", "mlops_target": "dev"}}}
     assert B.render(_load(tmp_path, res, "prod"))["schemas"]["predictions"]["dataset_id"] == "ml_predictions"
     lb = _load(tmp_path, res)
@@ -145,11 +145,11 @@ def test_a_dashboard_needs_its_file_and_a_valid_spec(tmp_path):
 
 
 def test_a_cluster_may_take_exact_cpu_and_memory(tmp_path):
-    cluster = {"job_cluster_key": "roas-d90", "new_cluster": {
+    cluster = {"job_cluster_key": "forecast-90d", "new_cluster": {
         "docker_image": {"url": "img"}, "cpu": 8, "memory": "24Gi"}}
     plan = B.render(_load(tmp_path, {"jobs": {"serve": _serve(
-        [{"model": "m", "job_cluster_key": "roas-d90"}], clusters=(cluster,))}}))
-    rj = plan["run_jobs"]["demo-serve-roas-d90-dev"]
+        [{"model": "m", "job_cluster_key": "forecast-90d"}], clusters=(cluster,))}}))
+    rj = plan["run_jobs"]["demo-serve-forecast-90d-dev"]
     assert (rj["cpu"], rj["memory"]) == ("8", "24Gi")
 
 
@@ -165,7 +165,7 @@ def test_exact_sizes_fit_cloud_run(tmp_path, size, message):
         _load(tmp_path, {"jobs": {"serve": _serve([{"model": "m", "job_cluster_key": "c"}], clusters=(cluster,))}})
 
 
-VERTEX = {"registered_model": "churn", "date_col": "install_date", "machine_type": "n1-highmem-8", "max_replica_count": 4,
+VERTEX = {"registered_model": "churn", "date_col": "snapshot_date", "machine_type": "n1-highmem-8", "max_replica_count": 4,
           "input_table": "p.ml_feature_store.churn_features", "output_table": "p.ml_predictions.churn_predictions",
           "prediction_col": "predicted_churn",
           "entity_id_columns": ["user_id"], "instance_type": "array", "included_fields": ["f1", "f2"]}
@@ -176,7 +176,7 @@ def test_a_served_model_may_be_scored_by_a_vertex_batch_prediction_job(tmp_path)
     [m] = B.job_definition(lb, "serve")["tasks"]["serve"]["argument"]["models"]
     assert "job" not in m and m["vertex"] == {
         "registered_model": "churn", "version": "@champion", "machine_type": "n1-highmem-8",
-        "starting_replica_count": 1, "max_replica_count": 4, "date_col": "install_date",
+        "starting_replica_count": 1, "max_replica_count": 4, "date_col": "snapshot_date",
         "input_table": "p.ml_feature_store.churn_features",
         "output_table": "p.ml_predictions.churn_predictions",
         "prediction_col": "predicted_churn", "entity_id_columns": ["user_id"], "instance_type": "array",

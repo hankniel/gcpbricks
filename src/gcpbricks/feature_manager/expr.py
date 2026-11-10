@@ -90,7 +90,7 @@ class _Fold(ast.NodeTransformer):
         if (len(node.args) != 1 or not isinstance(node.args[0], ast.Constant)
                 or not isinstance(node.args[0].value, str) or len(node.keywords) != 1):
             raise ExprError(f"{self.source!r}: cols() takes one pattern string and one "
-                            f"keyword, e.g. cols('rev_day_{{d}}', d=days)")
+                            f"keyword, e.g. cols('val_day_{{d}}', d=days)")
         pattern, kw = node.args[0].value, node.keywords[0]
         values = self._sequence(kw.value)
         if "{" + kw.arg + "}" not in pattern:

@@ -1,7 +1,7 @@
 resources:
   jobs:
     nightly:
-      description: Build Demo App's tables, then score yesterday's cohorts.
+      description: Build Demo App's tables, then score yesterday's segments.
       parameters:
         - name: run_date
           default: "{{job.start_time.iso_date}}"

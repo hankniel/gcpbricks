@@ -431,13 +431,13 @@ def test_a_job_id_naming_nothing_resolvable_is_refused(tmp_path):
 
 
 def test_job_keys_take_underscores_and_gcp_names_take_hyphens(tmp_path):
-    lb = _load(tmp_path, {"roas_daily": _job(WHEEL, DBT)}, "dev")
+    lb = _load(tmp_path, {"ratio_daily": _job(WHEEL, DBT)}, "dev")
     plan = B.render(lb)
-    assert plan["jobs"]["roas_daily"]["workflow"] == "demo-roas-daily-dev"
-    assert set(plan["run_jobs"]) == {"demo-roas-daily-main-dev", "demo-dbt-dev"}
-    assert plan["jobs"]["roas_daily"]["env"] == {
-        "MLOPS_BUCKET": "b", "MLOPS_DEFINITION": "dev/.bundle/demo/jobs/roas_daily.json",
-        "MLOPS_JOB": "roas_daily", "MLOPS_TARGET": "dev", "MLOPS_JOB_NAME": "roas_daily"}
+    assert plan["jobs"]["ratio_daily"]["workflow"] == "demo-ratio-daily-dev"
+    assert set(plan["run_jobs"]) == {"demo-ratio-daily-main-dev", "demo-dbt-dev"}
+    assert plan["jobs"]["ratio_daily"]["env"] == {
+        "MLOPS_BUCKET": "b", "MLOPS_DEFINITION": "dev/.bundle/demo/jobs/ratio_daily.json",
+        "MLOPS_JOB": "ratio_daily", "MLOPS_TARGET": "dev", "MLOPS_JOB_NAME": "ratio_daily"}
 
 
 def test_job_keys_colliding_once_hyphenated_are_refused(tmp_path):

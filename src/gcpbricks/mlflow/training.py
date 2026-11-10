@@ -11,8 +11,8 @@ model version page shows it and later checks (drift, a retrain's diff) have a ba
     execution   the Cloud Run execution or Vertex AI custom job the run ran in: the console
                 prices it (what training cost, how long it took), the machine computes nothing
 
-    summary = mlflow.training_summary(train=train_df, valid=valid_df, label="roas_d90",
-                                      time_column="install_date", model=estimator, snapshot=uri)
+    summary = mlflow.training_summary(train=train_df, valid=valid_df, label="forecast_90d",
+                                      time_column="snapshot_date", model=estimator, snapshot=uri)
     mlflow.pyfunc.log_model("model", python_model=..., training=summary)
     mlflow.log_training(summary)        # a model logged by hand
 """

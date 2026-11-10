@@ -71,7 +71,7 @@ WORKLOAD_SIZES = {"Small": (1, 1), "Medium": (1, 4), "Large": (2, 16)}
 class ServedEntityInput(_Strict):
     #: Unique in the endpoint. Absent: "<entity_name>-<entity_version>".
     name: str | None = None
-    #: A registered model's display name, e.g. ${resources.registered_models.roas.name}.
+    #: A registered model's display name, e.g. ${resources.registered_models.forecast.name}.
     entity_name: str
     #: Its Vertex version id.
     entity_version: str = Field(pattern=r"^\d+$")

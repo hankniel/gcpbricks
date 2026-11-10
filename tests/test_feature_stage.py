@@ -21,9 +21,9 @@ from gcpbricks.features import FeatureStore
 
 AT = 3
 DAYS = [datetime(2026, 9, d) for d in range(1, 5)]
-COHORTS = ["a", "b", "c", "quiet"]          # "quiet" has no long rows at all
-KEYS = [{"name": "cohort", "data_type": "String", "meta": {"entity": True}},
-        {"name": "install_date", "data_type": "String", "meta": {"entity": True}},
+SEGMENTS = ["a", "b", "c", "quiet"]          # "quiet" has no long rows at all
+KEYS = [{"name": "segment", "data_type": "String", "meta": {"entity": True}},
+        {"name": "snapshot_date", "data_type": "String", "meta": {"entity": True}},
         {"name": "feature_timestamp", "data_type": "DateTime", "meta": {"feature_timestamp": True}}]
 
 SPEC = {
@@ -43,18 +43,18 @@ SPEC = {
          "time_window": {"series_start": "-3d", "window_size": "1d"}, "keep": False},
     ],
     "transforms": [
-        {"name": "roas", "formula": "fillna(cols('rev_d{d}', d=range(0, 4)), 0) / maximum(cost, eps)",
+        {"name": "forecast", "formula": "fillna(cols('val_d{d}', d=range(0, 4)), 0) / maximum(cost, eps)",
          "keep": False},
-        {"name": "pulse", "formula": "row_mean(roas)"},
+        {"name": "pulse", "formula": "row_mean(forecast)"},
         {"name": "trend", "formula": "row_slope(rev_series)"},
         {"name": "momentum", "formula": "rev_sum_3d / maximum(rev_sum_2d_offset_1d, eps)"},
         {"name": "log_cost", "formula": "log1p(cost)"},
     ],
     "preprocessing": [
         {"name": "pulse_med", "fit": "median", "of": "pulse", "by": "geo"},
-        {"name": "excess", "formula": "roas - pulse_med", "keep": False},
+        {"name": "excess", "formula": "forecast - pulse_med", "keep": False},
         {"name": "excess_mean", "formula": "row_mean(excess)"},
-        {"name": "gini", "formula": "row_gini(roas)"},
+        {"name": "gini", "formula": "row_gini(forecast)"},
     ],
     "inputs": {"default": ["+outputs", "geo"]},
 }
@@ -65,7 +65,7 @@ def _models(fs_path, lng_path):
         {"name": "fs_c", "meta": {"feature_store": {"offline_table": str(fs_path)}},
          "columns": copy.deepcopy(KEYS) + [{"name": "cost", "data_type": "Float64"},
                                            {"name": "geo", "data_type": "String"}]
-         + [{"name": f"rev_d{d}", "data_type": "Float64"} for d in range(4)]},
+         + [{"name": f"val_d{d}", "data_type": "Float64"} for d in range(4)]},
         {"name": "lng", "meta": {"feature_store": {"offline_table": str(lng_path)}},
          "columns": copy.deepcopy(KEYS) + [{"name": "rev", "data_type": "Float64"},
                                            {"name": "sess", "data_type": "Float64"}]},
@@ -98,11 +98,11 @@ def data(tmp_path, request):
 def _data(tmp_path, engine="duckdb"):
     rng = np.random.default_rng(3)
     wide, long = [], []
-    for c in COHORTS:
+    for c in SEGMENTS:
         for d in DAYS:
-            row = {"cohort": c, "install_date": d.strftime("%Y-%m-%d"), "feature_timestamp": d,
+            row = {"segment": c, "snapshot_date": d.strftime("%Y-%m-%d"), "feature_timestamp": d,
                    "cost": float(rng.choice([0.0, 2.0, 10.0, np.nan])), "geo": rng.choice(["us", "vn"])}
-            row.update({f"rev_d{i}": float(rng.choice([0.0, 1.5, np.nan, 4.0])) for i in range(4)})
+            row.update({f"val_d{i}": float(rng.choice([0.0, 1.5, np.nan, 4.0])) for i in range(4)})
             wide.append(row)
             if c == "quiet":
                 continue
@@ -110,7 +110,7 @@ def _data(tmp_path, engine="duckdb"):
                 if rng.uniform() < 0.25:
                     continue
                 rev = rng.choice([1.0, 2.0, 5.0, np.nan, None])
-                long.append({"cohort": c, "install_date": d.strftime("%Y-%m-%d"),
+                long.append({"segment": c, "snapshot_date": d.strftime("%Y-%m-%d"),
                              "feature_timestamp": d + timedelta(days=age), "age": age,
                              "rev": rev, "sess": float(rng.integers(0, 4))})
     us = {"coerce_timestamps": "us", "allow_truncated_timestamps": True}
@@ -129,7 +129,7 @@ def _expected_aggregations(w: pd.DataFrame, ln: pd.DataFrame, prefix: str) -> pd
     """The aggregations by hand: a long row's age counts when inside the window's ages."""
     out = []
     for _, r in w.iterrows():
-        rows = ln[(ln.cohort == r.cohort) & (ln.install_date == r.install_date)]
+        rows = ln[(ln.segment == r.segment) & (ln.snapshot_date == r.snapshot_date)]
         rev = rows.rev.astype(float)
         ok = rev.notna()
 
@@ -156,10 +156,10 @@ def test_the_feature_stores_stage_gives_what_the_pipeline_computes(data):
     fv = fs.get_feature_view("fs_c")
     bfv = fs.batch_feature_view("m", "fs_c", stage, at_days=AT)
     by_sql = fs.create_training_set(fv.spine(), [bfv, fv[list(stage.python_columns)]]).load_df()
-    key = ["cohort", "install_date"]
+    key = ["segment", "snapshot_date"]
     by_sql = by_sql.sort_values(key, ignore_index=True)
     # The raw columns only the transforms read stay in the warehouse.
-    assert "rev_d0" not in by_sql and "cost" not in by_sql and "geo" in by_sql
+    assert "val_d0" not in by_sql and "cost" not in by_sql and "geo" in by_sql
 
     # The reference: aggregations by hand (the feature store's only), transforms by numpy.
     raw = w.sort_values(key, ignore_index=True)
@@ -183,10 +183,10 @@ def test_the_feature_stores_stage_gives_what_the_pipeline_computes(data):
 def test_a_frame_of_another_specs_sql_columns_is_not_read_as_this_ones(data):
     _, w, ln = data
     other = copy.deepcopy(SPEC)
-    other["transforms"][1]["formula"] = "row_sum(roas)"
+    other["transforms"][1]["formula"] = "row_sum(forecast)"
     plan, other_plan = compile_spec(SPEC), compile_spec(other)
     assert plan.sql_prefix != other_plan.sql_prefix
-    raw = w.sort_values(["cohort", "install_date"], ignore_index=True)
+    raw = w.sort_values(["segment", "snapshot_date"], ignore_index=True)
     frame = pd.concat([raw, _expected_aggregations(raw, ln, plan.sql_prefix)], axis=1)
     frame[other_plan.sql_prefix + "pulse"] = -12345.0     # another spec's value, same name
     out = FeaturePipeline(SPEC).fit(frame).transform(frame)
@@ -202,7 +202,7 @@ def test_an_aggregation_the_frame_lacks_fails(data):
 
 def test_the_blocks_keep_sql_and_python_apart():
     bad = copy.deepcopy(SPEC)
-    bad["transforms"].append({"name": "g2", "formula": "row_gini(roas)"})
+    bad["transforms"].append({"name": "g2", "formula": "row_gini(forecast)"})
     with pytest.raises(ExprError, match="move it to preprocessing"):
         compile_spec(bad)
     back = copy.deepcopy(SPEC)
@@ -213,7 +213,7 @@ def test_the_blocks_keep_sql_and_python_apart():
     with pytest.raises(ValueError, match="not both"):
         compile_spec(both)
     stage = compile_spec(SPEC).sql_stage()
-    assert set(stage.needed) >= {"roas", "pulse", "trend", "momentum", "rev_sum_3d"}
+    assert set(stage.needed) >= {"forecast", "pulse", "trend", "momentum", "rev_sum_3d"}
     assert stage.python_columns == ("geo",)
 
 
@@ -271,4 +271,4 @@ def _stage_frame(fs):
     fv = fs.get_feature_view("fs_c")
     bfv = fs.batch_feature_view("m", "fs_c", stage, at_days=AT)
     df = fs.create_training_set(fv.spine(), [bfv, fv[list(stage.python_columns)]]).load_df()
-    return df.sort_values(["cohort", "install_date"], ignore_index=True)
+    return df.sort_values(["segment", "snapshot_date"], ignore_index=True)

@@ -11,13 +11,13 @@ the rest, with the meta dbt-features already carries:
         meta:
           feature_store:
             offline_table: ml_feature_store.fs_demo_features   # what the engine reads
-            display_name: Predict ROAS cohort features   # optional: the console's name for it
+            display_name: Demo segment features   # optional: the console's name for it
             kind: feature                   # or label: a training target, not a model input
             families:                       # optional: family -> column globs, first match
-              acquisition: [cost, installs, impressions, clicks]
-              revenue: ["*_rev_day_*"]
+              acquisition: [cost, signups, impressions, clicks]
+              revenue: ["*_val_day_*"]
         columns:
-          - name: install_date
+          - name: snapshot_date
             data_type: String
             meta: {entity: true}            # a join key
           - name: feature_timestamp
@@ -54,7 +54,7 @@ _TYPES = [
     (r"(lowcardinality\()?(string(\(\d+\))?|fixedstring.*|uuid|(var)?char(\(\d+\))?)\)?", "String"),
     (r"date(32)?|datetime.*|timestamp(_ntz|_ltz)?(\(\d+\))?", "UnixTimestamp"),
 ]
-#: Keys are strings or integers: a DATE install_date is a 'YYYY-MM-DD' STRING.
+#: Keys are strings or integers: a DATE snapshot_date is a 'YYYY-MM-DD' STRING.
 _KEY_TYPES = {"Int64", "String"}
 
 

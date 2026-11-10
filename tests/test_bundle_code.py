@@ -47,17 +47,17 @@ def test_an_absolute_python_file_is_the_images_own(tmp_path):
 
 def test_a_served_model_with_a_python_file_gets_a_job_of_its_own_running_it(tmp_path):
     serve = {"job_clusters": [RUNTIME], "tasks": [{"task_key": "serve", "batch_serve_task": {
-        "models": [{"model": "roas_d90", "job_cluster_key": "runtime", "python_file": "serving/serve.py"},
-                   {"model": "roas_d30", "job_cluster_key": "runtime"}],
+        "models": [{"model": "forecast_90d", "job_cluster_key": "runtime", "python_file": "serving/serve.py"},
+                   {"model": "forecast_30d", "job_cluster_key": "runtime"}],
         "window_days": 14}}]}
     lb = _load(tmp_path, {"serve": serve})
     plan = B.render(lb)
-    own = plan["run_jobs"]["demo-serve-roas-d90-dev"]
+    own = plan["run_jobs"]["demo-serve-forecast-90d-dev"]
     assert own["image"] == "reg/runtime:lock-abc" and own["tasks"] == 2
     assert own["args"] == ["mlops-task", "python", "--files", FILES, "--", "serving/serve.py"]
     assert plan["run_jobs"]["demo-serve-runtime-dev"]["args"] is None
     models = B.job_definition(lb, "serve")["tasks"]["serve"]["argument"]["models"]
-    assert [m["job"] for m in models] == ["demo-serve-roas-d90-dev", "demo-serve-runtime-dev"]
+    assert [m["job"] for m in models] == ["demo-serve-forecast-90d-dev", "demo-serve-runtime-dev"]
     assert B.needs_files(lb.bundle.resources.jobs["serve"])
 
 

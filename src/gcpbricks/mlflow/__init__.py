@@ -3,18 +3,18 @@ project's code reads as it would on Databricks, and moving to real MLflow is an 
 
     from gcpbricks import mlflow
 
-    mlflow.set_experiment("roas-d30")
+    mlflow.set_experiment("forecast-30d")
     with mlflow.start_run(run_name="v42"):
         mlflow.log_params({...}); mlflow.log_metrics({...})
         with mlflow.start_run(run_name="v42-trial-0", nested=True):   # a child run
             mlflow.log_metric("r2", 0.4)
         info = mlflow.pyfunc.log_model("model", python_model=MyModel(),
                                        artifacts={"estimator": "model.pkl"},
-                                       registered_model_name="roas_d30")
+                                       registered_model_name="forecast_30d")
     client = mlflow.MlflowClient()
-    client.set_registered_model_alias("roas_d30", "champion", info.registered_model_version)
-    run = client.get_run(client.get_model_version_by_alias("roas_d30", "champion").run_id)
-    model = mlflow.pyfunc.load_model("models:/roas_d30@champion")
+    client.set_registered_model_alias("forecast_30d", "champion", info.registered_model_version)
+    run = client.get_run(client.get_model_version_by_alias("forecast_30d", "champion").run_id)
+    model = mlflow.pyfunc.load_model("models:/forecast_30d@champion")
     result = mlflow.evaluate(data=df, predictions="pred", targets="y", model_type="regressor")
     mlflow.validate_evaluation_results({"r2_score": mlflow.models.MetricThreshold(
         threshold=0.3, greater_is_better=True)}, result)   # see _evaluation.py

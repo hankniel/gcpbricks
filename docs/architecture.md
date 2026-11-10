@@ -27,7 +27,7 @@ SDK in detail; this page is the map. Why it is built this way: [Idea](idea.md).
   (`trigger.table_update`).
 - **Existing tools first.** Workflows + Cloud Scheduler for orchestration, Cloud Run jobs
   for compute, Vertex AI for pipelines and the model registry, Feast for point-in-time
-  joins, BigQuery, Spark and Iceberg for tables.
+  joins, and BigQuery or Spark (over native, Iceberg or Parquet tables) for tables.
 - **Into this repo only what two projects use.** Model logic, gates and features stay in
   each project.
 
@@ -66,21 +66,27 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  SPARK["Spark jobs"] -- "write" --> ICE[("Iceberg on GCS<br/>features + labels")]
-  ICE -- "read in place" --> BQ["BigQuery<br/>(or Spark)"]
+  PROD["Table producers<br/>(dbt, Spark, SQL, any job)"] -- "write" --> TBL[("Warehouse tables<br/>features + labels<br/>(BigQuery, Iceberg, Parquet)")]
+  TBL -- "read in place" --> ENG["Engine<br/>(BigQuery, Spark or DuckDB)"]
   DBTML["dbt-models _models.yml"] -- "mlops-features render" --> JSON["gs://my-ml-bucket/<br/>feature_store/features.json"]
   JSON --> SDK["FeatureStore SDK"]
-  BQ --> SDK
+  ENG --> SDK
   SDK -- "training_set · read_table" --> TRAIN["training"]
   SDK -- "score_batch + FeatureSpec" --> SERVE["batch scoring"]
-  SERVE -- "publish" --> PRED[("BigQuery<br/>prediction tables")]
+  SERVE -- "publish" --> PRED[("Prediction tables")]
 ```
+
+The diagram is one example. The SDK is agnostic about where tables are produced and which
+engine reads them: a BigQuery-only setup (dbt builds native tables, BigQuery reads them), a
+Spark one (Spark writes Iceberg or Parquet, a Spark session reads them), or DuckDB over local
+Parquet in tests are all the same code with a different `engine=`. Only the engine's client
+and the table's address differ; see "Engines" in [Reference](reference.md).
 
 - Tables are written once and read where they are: no copy or load step between the
   warehouse and the feature store.
 - A **feature group** is a table plus metadata: entity keys (`meta.entity`), the as-of
   column (`meta.feature_timestamp`), types, and families (column globs). A date in the
-  grain (`install_date`) is a key, so an as-of match never borrows another day's row.
+  grain (a `snapshot_date`, say) is a key, so an as-of match never borrows another day's row.
 - **Labels are feature groups too**: a label table is created and loaded by its query like
   any other; a training set joins it like features. There is no label store.
 - The SDK builds Feast objects from `features.json` into a throwaway local registry on

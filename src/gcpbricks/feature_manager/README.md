@@ -28,18 +28,18 @@ A spec states its features in three blocks, in the order they run; the older sin
 
 ```yaml
 aggregations:      # stateless, SQL: Tecton's Aggregate over a long feature view's rows
-  - {source: fs_user_ltv__long, input: total_rev, function: sum, time_window: 3d}       # total_rev_sum_3d
-  - {source: fs_user_ltv__long, input: total_rev, function: sum, time_window: lifetime}
-  - {source: fs_user_ltv__long, input: total_rev, function: sum,
+  - {source: fs_user_ltv__long, input: total_val, function: sum, time_window: 3d}       # total_val_sum_3d
+  - {source: fs_user_ltv__long, input: total_val, function: sum, time_window: lifetime}
+  - {source: fs_user_ltv__long, input: total_val, function: sum,
      time_window: {window_size: 3d, offset: -3d}}                                     # the 3 days before
-  - {name: rev_daily, source: fs_user_ltv__long, input: total_rev, function: sum,
+  - {name: val_daily, source: fs_user_ltv__long, input: total_val, function: sum,
      time_window: {series_start: -3d, window_size: 1d}, keep: false}                  # a matrix, a day each
 transforms:        # stateless, SQL: row-wise formulas, every op one SQL states
-  - {name: roas_d7, formula: "total_rev_day_7_cum / maximum(cost, 1e-9)"}
-  - {name: rev_trend, formula: "row_slope(rev_daily)"}
+  - {name: ratio_d7, formula: "total_val_day_7_cum / maximum(cost, 1e-9)"}
+  - {name: rev_trend, formula: "row_slope(val_daily)"}
 preprocessing:     # stateful or numpy-only, Python: fit on the training rows, frozen
   - {name: geo_te, fit: mean, of: "@target", by: geo}
-  - {name: gini, formula: "row_gini(cols('total_rev_day_{d}', d=range(0, 8)))"}
+  - {name: gini, formula: "row_gini(cols('total_val_day_{d}', d=range(0, 8)))"}
   - {name: siblings, udf: "model:compute_sibling_features", outputs: [sibling_count_30d], inputs: [geo]}
 ```
 
@@ -67,7 +67,7 @@ DuckDB, as golden fixtures check them.
 ### Spine and decision: the rows, stated in the spec
 
 ```yaml
-spine: fs_ua_optimization__cohort_cost   # the training rows: one per row of this view
+spine: fs_demo__segment_cost   # the training rows: one per row of this view
 decision: {at_days: 7}                    # windows end at D7, that day included; or `landmarks`
 ```
 
@@ -78,12 +78,12 @@ columns the Python steps read. The three shapes:
 
 | spine | decision | rows |
 |---|---|---|
-| the entity view (`cohort_cost`) | `decision: {at_days: N}` | one per entity, features as of DN |
+| the entity view (`segment_cost`) | `decision: {at_days: N}` | one per entity, features as of DN |
 | the entity view | `landmarks: {at, horizons}` | entity x decision day x horizon, with labels |
-| the long view (`cohort_long`) | `decision: {at_days: 0}` | one per entity x age, each row's recent days |
+| the long view (`segment_long`) | `decision: {at_days: 0}` | one per entity x age, each row's recent days |
 
 `python -m gcpbricks.feature_manager.explain features.yaml --dbt-features DIR [--markdown]`
-prints each feature as a sentence (`total_rev_sum_3d: sum of total_rev in …, D5..D7, per
+prints each feature as a sentence (`total_val_sum_3d: sum of total_val in …, D5..D7, per
 spine row, across age; none there: 0`), to check against what was meant before training
 and as a guide's lookup table. `preview(df)` shows a training set without the
 `__sql_<hash>__` prefixes.
@@ -98,14 +98,14 @@ Two mistakes that would compute without failing fail the compile: an age window 
 landmarks: {at: [3, 7], horizons: [30]}   # a row per entity x decision day x horizon
                                           # at: {range: [0, 91, 7]} for D0, D7, ..., D90
 aggregations:
-  - {name: "rev_d{d}_cum", source: fs_ua_optimization__cohort_long, input: total_rev, function: sum,
+  - {name: "val_d{d}_cum", source: fs_demo__segment_long, input: total_val, function: sum,
      time_window: {from_day: 0, to_day: "{d}"}, over: [age], for_each: {d: [0, 1, 3]}}
-  - {source: fs_ua_optimization__cohort_long, input: total_rev, function: sum,
+  - {source: fs_demo__segment_long, input: total_val, function: sum,
      time_window: lifetime, over: [age]}
 labels:                                   # targets at each horizon, never features
-  - {name: rev_cum, source: fs_ua_optimization__cohort_long, input: total_rev,
+  - {name: rev_cum, source: fs_demo__segment_long, input: total_val,
      function: sum, time_window: lifetime, over: [age]}
-  - {name: rev_after, source: fs_ua_optimization__cohort_long, input: total_rev,
+  - {name: rev_after, source: fs_demo__segment_long, input: total_val,
      function: sum, time_window: lifetime, over: [age], since_decision: true}
 ```
 
@@ -114,8 +114,8 @@ labels:                                   # targets at each horizon, never featu
   `{from_day: 0, to_day: N}`.
 - An aggregation joins on the source's keys the spine has, less those in its `over`
   (aggregated across); a key the spine lacks must be listed there, or the training set
-  fails. With the long view itself as the spine and `at_days=0`, each (cohort, age) row
-  keeps its age and reads its cohort's rows up to its own day: `3d` with `over: [age]`
+  fails. With the long view itself as the spine and `at_days=0`, each (segment, age) row
+  keeps its age and reads its segment's rows up to its own day: `3d` with `over: [age]`
   is the last 3 days, a `1d` series under `row_slope` their trend.
 - `landmarks` replaces `at_days`: each spine row once per `at` day (column
   `decision_day`) and horizon (`horizon_day`). Windows end at that row's decision day;
@@ -123,7 +123,7 @@ labels:                                   # targets at each horizon, never featu
   `_day_<N>` column, fails the compile (a row would read its future). Transforms read
   `decision_day` and `horizon_day` as numbers, so a value as of a fixed age is a
   `lifetime` sum of the ages it covers masked until reached:
-  `where(decision_day >= 7, rev_le7, nan)` over `input: {formula: "where(age <= 7, total_rev, nan)"}`.
+  `where(decision_day >= 7, rev_le7, nan)` over `input: {formula: "where(age <= 7, total_val, nan)"}`.
 - A label's window ends at the horizon; `since_decision` counts only the days after the
   decision day.
 - Maturity follows the source's frontier (its latest timestamp read): a decision day it
@@ -143,21 +143,21 @@ vars:                        # constants: scalars read by name, lists for cols()
 define:                      # runs top to bottom; reading a later name is an error
   - name: "{p}_growth_d{x}_d{y}_cum"
     expr: "({p}_day_{y}_cum - {p}_day_{x}_cum) / ({p}_day_{x}_cum + eps)"
-    for_each: {p: [ads_rev, total_rev], "x,y": {pairs: days}}
+    for_each: {p: [ads_rev, total_val], "x,y": {pairs: days}}
 
-  - name: roas_daily                        # a matrix: never an output itself
-    expr: "cols('total_rev_day_{d}', d=range(0, 8)) / maximum(cost, 1e-12)"
+  - name: ratio_daily                        # a matrix: never an output itself
+    expr: "cols('total_val_day_{d}', d=range(0, 8)) / maximum(cost, 1e-12)"
     keep: false
-  - {name: log_roas, expr: "log1p(row_sum(roas_daily))", keep: false}
-  - {name: log_roas_med, fit: median, of: log_roas, by: platform, keep: false}
-  - {name: roas_alpha, expr: "log_roas - log_roas_med"}
+  - {name: log_ratio, expr: "log1p(row_sum(ratio_daily))", keep: false}
+  - {name: log_ratio_med, fit: median, of: log_ratio, by: platform, keep: false}
+  - {name: ratio_alpha, expr: "log_ratio - log_ratio_med"}
 
   - {name: clicks_bin, fit: quantile_bin, of: clicks, q: [0, 0.25, 0.5, 0.75, 1]}
   - {name: geo_te, fit: mean, of: "@target", by: geo}
 
   - name: siblings                          # what no expression states
     custom: "model:compute_sibling_features"
-    inputs: [install_date, product_id_encrypted, campaign_id_encrypted]
+    inputs: [snapshot_date, product_id, campaign_id]
     outputs: [sibling_count_30d]
     batch_dependent: true
 
@@ -224,11 +224,11 @@ A model that trains several estimators on different rows declares them under
 ```yaml
 submodels:
   up:
-    when: "installs >= 200"                 # an expression over frame columns and kept features
+    when: "signups >= 200"                 # an expression over frame columns and kept features
     params: {n_estimators: 2500, max_depth: 6}
     inputs: [+common, +group:value_ratios, cost]
   low:
-    when: "(installs > 0) & (installs < 200)"
+    when: "(signups > 0) & (signups < 200)"
     params: {n_estimators: 2500, max_depth: 10}
     inputs: [+common, LTV_day_7_cum]
 ```
@@ -278,22 +278,21 @@ until the declared space changes.
 | Reduce a row | `row_sum row_mean row_max row_min`, `row_std(m, ddof=0)`, `row_gini(m, eps=1e-12)`, `row_argmax(m, last=0)`, `row_slope(m, x=, eps=0)`, `row_polyfit(m, deg=, k=, x=)` (coefficient of x^k), `row_polyfit_r2(m, deg=, x=, eps=1e-12)` |
 | Map a row | `row_detrend(m, x=)` (residuals of its least-squares line), `row_diff(m)` (k-1 day-over-day differences), `col_slice(m, start=, stop=)` |
 
-A vector and a matrix combine row by row (`roas - ref` subtracts each row's own `ref`).
+A vector and a matrix combine row by row (`forecast - ref` subtracts each row's own `ref`).
 Curve fits take x as a keyword (a list or a list var, e.g. `x=days`); without it, x is the
 column position 0..k-1. `row_argmax` on a boolean matrix finds the first (`last=1`: the
-last) True. A datetime column reads as days since 1970-01-01, so `(install_date + 3) % 7`
+last) True. A datetime column reads as days since 1970-01-01, so `(snapshot_date + 3) % 7`
 is the weekday (Monday = 0).
 
 Anything else — attribute access, subscripts, unknown calls — fails at compile. Division
 by zero and `log(0)` follow IEEE (`inf`, `-inf`, `nan`); guard with `maximum`/`where`.
 
-demo_model's `models/<model>/features.yaml` are worked specs — roas_d7_180's (67
-features) is the most compact, breakeven_day's (109, with a `custom` step) the largest.
+`tests/test_feature_manager.py` holds worked specs, from a few features to a larger one with a `custom` step.
 
 ## Guarantees
 
 - **Batch independence.** Every op works within one row and every `fit` step only looks
-  up frozen values, so a cohort scores the same whichever chunk it is served in. Only a
+  up frozen values, so a segment scores the same whichever chunk it is served in. Only a
   `custom` step can break this, and it must say so (`batch_dependent: true`).
 - **Point-in-time safe, if pickled by value.** A project that pickles the fitted pipeline
   with `cloudpickle.register_pickle_by_value(gcpbricks.feature_manager)` serves an

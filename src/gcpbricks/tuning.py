@@ -4,7 +4,7 @@ retrain takes from its @champion.
 
     from gcpbricks import mlflow, tuning
 
-    mlflow.set_experiment("roas-d30-hpt")
+    mlflow.set_experiment("forecast-30d-hpt")
     result = tuning.sweep(
         space={"learning_rate": {"type": "double", "min": 1e-3, "max": 0.3, "scale": "log"},
                "max_depth": {"type": "integer", "min": 3, "max": 10}},
@@ -13,7 +13,7 @@ retrain takes from its @champion.
     result.best_params, result.best_value
 
     # A retrain: the champion's tuned params, else the defaults.
-    params, source = tuning.champion_params("roas_d30", space)
+    params, source = tuning.champion_params("forecast_30d", space)
     with mlflow.start_run(run_name=model_id):
         tuning.log_params(params, space, source)
         fit(defaults | params)

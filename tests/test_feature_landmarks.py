@@ -25,15 +25,15 @@ AT, HORIZONS = [1, 3], [5, 6]
 SPEC = {
     "landmarks": {"at": AT, "horizons": HORIZONS},
     "aggregations": [
-        {"name": "rev_d{d}_cum", "source": "lng", "input": "rev", "function": "sum",
+        {"name": "val_d{d}_cum", "source": "lng", "input": "rev", "function": "sum",
          "time_window": {"from_day": 0, "to_day": "{d}"}, "over": ["age"], "for_each": {"d": [0, 1]}},
-        {"name": "rev_d1", "source": "lng", "input": "rev", "function": "max",
+        {"name": "val_d1", "source": "lng", "input": "rev", "function": "max",
          "time_window": {"from_day": 1, "to_day": 1}, "over": ["age"]},
         {"source": "lng", "input": "rev", "function": "sum", "time_window": "lifetime", "over": ["age"]},
         {"source": "lng", "input": "rev", "function": "sum", "time_window": "2d", "over": ["age"]},
         {"source": "lng", "input": "rev", "function": "count", "time_window": "2d", "over": ["age"]},
     ],
-    "transforms": [{"name": "growth", "formula": "rev_sum_lifetime / maximum(rev_d0_cum, 1)"}],
+    "transforms": [{"name": "growth", "formula": "rev_sum_lifetime / maximum(val_d0_cum, 1)"}],
     "labels": [
         {"name": "rev_cum", "source": "lng", "input": "rev", "function": "sum",
          "time_window": "lifetime", "over": ["age"]},
@@ -41,7 +41,7 @@ SPEC = {
          "time_window": "lifetime", "over": ["age"], "since_decision": True},
     ],
 }
-KEY = ["cohort", "install_date", "decision_day", "horizon_day"]
+KEY = ["segment", "snapshot_date", "decision_day", "horizon_day"]
 
 
 def _models(fs_path, lng_path):
@@ -61,7 +61,7 @@ def data(tmp_path, request):
     wide, long = [], []
     for c in ["a", "b", "quiet"]:
         for d in DAYS:
-            wide.append({"cohort": c, "install_date": d.strftime("%Y-%m-%d"), "feature_timestamp": d,
+            wide.append({"segment": c, "snapshot_date": d.strftime("%Y-%m-%d"), "feature_timestamp": d,
                          "cost": 1.0})
             if c == "quiet":
                 continue
@@ -69,7 +69,7 @@ def data(tmp_path, request):
             for age in range((DAYS[0] + timedelta(days=5) - d).days + 1):
                 if rng.uniform() < 0.2:
                     continue
-                long.append({"cohort": c, "install_date": d.strftime("%Y-%m-%d"), "age": age,
+                long.append({"segment": c, "snapshot_date": d.strftime("%Y-%m-%d"), "age": age,
                              "feature_timestamp": d + timedelta(days=age),
                              "rev": rng.choice([1.0, 2.0, 5.0, np.nan, None])})
     us = {"coerce_timestamps": "us", "allow_truncated_timestamps": True}
@@ -88,7 +88,7 @@ def _expected(w: pd.DataFrame, ln: pd.DataFrame, prefix: str) -> pd.DataFrame:
     last = ln.feature_timestamp.max()
     out = []
     for _, r in w.iterrows():
-        rows = ln[(ln.cohort == r.cohort) & (ln.install_date == r.install_date)]
+        rows = ln[(ln.segment == r.segment) & (ln.snapshot_date == r.snapshot_date)]
         rev = rows.rev.astype(float)
         ok = rev.notna()
         for a in AT:
@@ -97,9 +97,9 @@ def _expected(w: pd.DataFrame, ln: pd.DataFrame, prefix: str) -> pd.DataFrame:
             for h in HORIZONS:
                 def ages(lo, hi, ok=ok, rows=rows):
                     return ok & (rows.age >= lo) & (rows.age <= hi)
-                e = {"cohort": r.cohort, "install_date": r.install_date, "decision_day": a, "horizon_day": h,
-                     prefix + "rev_d0_cum": rev[ages(0, 0)].sum(), prefix + "rev_d1_cum": rev[ages(0, 1)].sum(),
-                     prefix + "rev_d1": rev[ages(1, 1)].max(),
+                e = {"segment": r.segment, "snapshot_date": r.snapshot_date, "decision_day": a, "horizon_day": h,
+                     prefix + "val_d0_cum": rev[ages(0, 0)].sum(), prefix + "val_d1_cum": rev[ages(0, 1)].sum(),
+                     prefix + "val_d1": rev[ages(1, 1)].max(),
                      prefix + "rev_sum_lifetime": rev[ages(0, a)].sum(),
                      prefix + "rev_sum_2d": rev[ages(a - 1, a)].sum(),
                      prefix + "rev_count_2d": float(ages(a - 1, a).sum())}
@@ -132,7 +132,7 @@ def test_landmark_rows_have_their_days_features_and_labels(data):
                                    equal_nan=True, err_msg=c)
     growth = got[plan.sql_prefix + "growth"].astype(float)
     np.testing.assert_allclose(growth, want[plan.sql_prefix + "rev_sum_lifetime"]
-                               / np.maximum(want[plan.sql_prefix + "rev_d0_cum"], 1), rtol=1e-12)
+                               / np.maximum(want[plan.sql_prefix + "val_d0_cum"], 1), rtol=1e-12)
     # Some rows dropped (decision day unreached) and some labels NULL (horizon unreached).
     assert len(got) < len(w) * len(AT) * len(HORIZONS)
     assert got.rev_cum.isna().any() and got.rev_cum.notna().any()
@@ -167,7 +167,7 @@ def test_landmarks_never_read_past_the_first_decision_day():
     with pytest.raises(ExprError, match="past decision day"):
         compile_spec(spec)
     spec = copy.deepcopy(SPEC)
-    spec["transforms"] = [{"name": "x", "formula": "rev_day_3 * 2"}]
+    spec["transforms"] = [{"name": "x", "formula": "val_day_3 * 2"}]
     with pytest.raises(ExprError, match="wide table"):
         compile_spec(spec)
     spec = copy.deepcopy(SPEC)
@@ -183,7 +183,7 @@ FIXED_DAY = {
          "input": {"name": "rev_if_le1", "formula": "where(age <= 1, rev, nan)"}},
     ],
     "transforms": [
-        {"name": "rev_d1_cum_known", "formula": "where(decision_day >= 3, rev_le1, nan)"},
+        {"name": "val_d1_cum_known", "formula": "where(decision_day >= 3, rev_le1, nan)"},
         {"name": "k", "formula": "decision_day + 0"},
         {"name": "to_horizon", "formula": "horizon_day - decision_day"},
     ],
@@ -203,8 +203,8 @@ def test_a_transform_reads_the_rows_decision_and_horizon_day(data):
     assert len(got) == len(want)
     p = plan.sql_prefix
     known = want.decision_day >= 3
-    np.testing.assert_allclose(got[p + "rev_d1_cum_known"].astype(float),
-                               np.where(known, want.rev_d1_cum, np.nan), rtol=1e-12, equal_nan=True)
+    np.testing.assert_allclose(got[p + "val_d1_cum_known"].astype(float),
+                               np.where(known, want.val_d1_cum, np.nan), rtol=1e-12, equal_nan=True)
     assert (got[p + "k"].astype(int) == want.decision_day).all()
     assert (got[p + "to_horizon"].astype(int) == want.horizon_day - want.decision_day).all()
 
@@ -238,27 +238,27 @@ def test_on_bigquery_landmarks_give_what_duckdb_gives(data, tmp_path):
 ROLLING = {
     "aggregations": [
         {"source": "lng", "input": "rev", "function": "sum", "time_window": "3d", "over": ["age"]},
-        {"name": "rev_daily", "source": "lng", "input": "rev", "function": "sum", "over": ["age"],
+        {"name": "val_daily", "source": "lng", "input": "rev", "function": "sum", "over": ["age"],
          "time_window": {"series_start": "-3d", "window_size": "1d"}, "keep": False},
     ],
-    "transforms": [{"name": "rev_trend", "formula": "row_slope(rev_daily)"}],
+    "transforms": [{"name": "rev_trend", "formula": "row_slope(val_daily)"}],
 }
 
 
 def test_a_long_spines_rows_read_their_entitys_recent_rows(data):
-    """The long view as the spine, at_days=0: each (cohort, age) row keeps its age and
-    reads its cohort's rows of the 3 days up to its own (`over: [age]`)."""
+    """The long view as the spine, at_days=0: each (segment, age) row keeps its age and
+    reads its segment's rows of the 3 days up to its own (`over: [age]`)."""
     fs, _, ln = data
     plan = compile_spec(ROLLING)
     bfv = fs.batch_feature_view("m", "lng", plan.sql_stage(), at_days=0)
     got = fs.create_training_set(fs.get_feature_view("lng").spine(), [bfv]).load_df()
-    key = ["cohort", "install_date", "age"]
+    key = ["segment", "snapshot_date", "age"]
     got = got.sort_values(key, ignore_index=True)
     want = ln.sort_values(key, ignore_index=True)
     assert len(got) == len(want) and (got.age.astype(int) == want.age).all()
 
     def day(r, back):
-        rows = ln[(ln.cohort == r.cohort) & (ln.install_date == r.install_date)
+        rows = ln[(ln.segment == r.segment) & (ln.snapshot_date == r.snapshot_date)
                   & (ln.age == r.age - back)]
         return rows.rev.astype(float).sum()
     daily = np.array([[day(r, b) for b in (2, 1, 0)] for r in want.itertuples()])
@@ -277,7 +277,7 @@ def test_a_window_before_the_decision_point_does_not_cut_the_frontier(data):
     fs, w, ln = data
     spec = {"landmarks": {"at": [0], "horizons": [2]},
             "aggregations": [{"name": "cost_before", "source": "fs_c", "input": "cost", "function": "sum",
-                              "time_window": {"window_size": "2d", "offset": "-1d"}, "over": ["install_date"]}],
+                              "time_window": {"window_size": "2d", "offset": "-1d"}, "over": ["snapshot_date"]}],
             "labels": [{"name": "rev_cum", "source": "lng", "input": "rev", "function": "sum",
                         "time_window": "lifetime", "over": ["age"]}]}
     plan = compile_spec(spec)
@@ -288,6 +288,6 @@ def test_a_window_before_the_decision_point_does_not_cut_the_frontier(data):
     last = ln.feature_timestamp.max()                       # DAYS[0] + 5: every horizon here is reached
     assert all(d + timedelta(days=2) <= last for d in spine.feature_timestamp)
     assert got.rev_cum.notna().all()
-    by = got.set_index(["cohort", "install_date"])[plan.sql_prefix + "cost_before"]
+    by = got.set_index(["segment", "snapshot_date"])[plan.sql_prefix + "cost_before"]
     assert by[("a", DAYS[1].strftime("%Y-%m-%d"))] == 1.0   # the day before, one row of cost 1
     assert by[("a", DAYS[0].strftime("%Y-%m-%d"))] == 0.0   # nothing before the first day

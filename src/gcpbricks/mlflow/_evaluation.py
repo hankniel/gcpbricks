@@ -6,8 +6,8 @@ model_type="regressor" (or None: extra_metrics only):
 
     candidate = mlflow.evaluate(data=df, predictions="pred", targets="y", model_type="regressor",
                                 extra_metrics=[make_metric(eval_fn=fn, greater_is_better=True)])
-    baseline = mlflow.evaluate(model="models:/roas_d30@champion", data=features_and_y, targets="y",
-                               model_type="regressor", predictions="predicted_roas_d30")
+    baseline = mlflow.evaluate(model="models:/forecast_30d@champion", data=features_and_y, targets="y",
+                               model_type="regressor", predictions="predicted_forecast_30d")
     mlflow.validate_evaluation_results(
         {"mean_absolute_error": MetricThreshold(threshold=1.0, greater_is_better=False)},
         candidate, baseline)

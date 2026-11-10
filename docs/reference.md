@@ -232,11 +232,11 @@ def pipeline(model: str):
 
 ```yaml
 tasks:
-  - task_key: roas_d30
+  - task_key: forecast_30d
     environment_key: training
     vertex_pipeline_task:
       python_file: training/pipeline.py              # function: pipeline (the default)
-      base_parameters: {model: roas_d30}
+      base_parameters: {model: forecast_30d}
 ```
 
 Deploy sets `MLOPS_BUNDLE_FILES`, `MLOPS_BUNDLE_VERSION` and the MLflow env on every step
@@ -282,16 +282,16 @@ no cluster, are not supported yet).
 ```yaml
 resources:
   experiments:
-    roas: {name: roas-d30}                       # Vertex AI Experiment roas-d30[-<target>]
+    forecast: {name: forecast-30d}                       # Vertex AI Experiment forecast-30d[-<target>]
   registered_models:
-    roas: {name: roas_d30, comment: ROAS at day 30}   # Vertex model roas_d30[_<target>]
+    forecast: {name: forecast_30d, comment: Forecast at day 30}   # Vertex model forecast_30d[_<target>]
   model_serving_endpoints:
-    roas:
-      name: roas-online                          # Vertex AI Endpoint roas-online[-<target>]
+    forecast:
+      name: forecast-online                          # Vertex AI Endpoint forecast-online[-<target>]
       config:
         served_entities:
-          - {name: main, entity_name: "${resources.registered_models.roas.name}", entity_version: "3"}
-          - {name: canary, entity_name: "${resources.registered_models.roas.name}", entity_version: "4",
+          - {name: main, entity_name: "${resources.registered_models.forecast.name}", entity_version: "3"}
+          - {name: canary, entity_name: "${resources.registered_models.forecast.name}", entity_version: "4",
              workload_size: Medium, workload_type: GPU_SMALL}
         traffic_config:
           routes: [{served_entity_name: main, traffic_percentage: 90},
@@ -336,17 +336,17 @@ project's training and scoring code reads as it would on Databricks (`gcpbricks[
 ```python
 from gcpbricks import mlflow
 
-mlflow.set_experiment("roas-d30")
+mlflow.set_experiment("forecast-30d")
 with mlflow.start_run(run_name=model_id):
     mlflow.log_params(params)
     mlflow.log_metrics(metrics)
-    info = mlflow.pyfunc.log_model("model", python_model=RoasModel(),
+    info = mlflow.pyfunc.log_model("model", python_model=ForecastModel(),
                                    artifacts={"estimator": "model.pkl"},
-                                   registered_model_name="roas_d30", tags={"model_id": model_id})
+                                   registered_model_name="forecast_30d", tags={"model_id": model_id})
 
 client = mlflow.MlflowClient()
-client.set_registered_model_alias("roas_d30", "champion", info.registered_model_version)
-model = mlflow.pyfunc.load_model("models:/roas_d30@champion")   # or models:/roas_d30/3
+client.set_registered_model_alias("forecast_30d", "champion", info.registered_model_version)
+model = mlflow.pyfunc.load_model("models:/forecast_30d@champion")   # or models:/forecast_30d/3
 model.predict(df)
 ```
 
@@ -392,8 +392,8 @@ from gcpbricks.mlflow.models import MetricThreshold, make_metric
 hits = make_metric(eval_fn=lambda predictions, targets, cost: ..., greater_is_better=True, name="hits")
 candidate = mlflow.evaluate(data=df, predictions="pred", targets="y", model_type="regressor",
                             extra_metrics=[hits])
-baseline = mlflow.evaluate(model="models:/roas_d30@champion", data=df_without_pred, targets="y",
-                           predictions="predicted_roas_d30", model_type="regressor")
+baseline = mlflow.evaluate(model="models:/forecast_30d@champion", data=df_without_pred, targets="y",
+                           predictions="predicted_forecast_30d", model_type="regressor")
 mlflow.validate_evaluation_results({"hits": MetricThreshold(threshold=70, greater_is_better=True)},
                                    candidate, baseline)   # raises ModelValidationFailedException
 ```
@@ -430,14 +430,14 @@ with a child run per trial:
 ```python
 from gcpbricks import mlflow, tuning
 
-mlflow.set_experiment("roas-d30-hpt")
+mlflow.set_experiment("forecast-30d-hpt")
 result = tuning.sweep({"learning_rate": {"type": "double", "min": 1e-3, "max": 0.3, "scale": "log"},
                        "max_depth": {"type": "integer", "min": 3, "max": 10}},
                       objective=train_and_score, metric="r2", n_trials=20, run_name=sweep_id)
 result.best_params, result.best_value
 
 # A retrain trains with @champion's tuned params, else its defaults:
-params, source = tuning.champion_params("roas_d30", space)   # ({}, "defaults") if none
+params, source = tuning.champion_params("forecast_30d", space)   # ({}, "defaults") if none
 with mlflow.start_run(run_name=model_id):
     tuning.log_params(params, space, source)                   # what the next retrain reuses
     fit(defaults | params)
@@ -453,7 +453,7 @@ reused only while the search space is unchanged, and a non-prod run reads prod's
 ```yaml
 resources:
   schemas:
-    predictions: {name: ml_predictions, comment: Scored cohorts}   # dataset ml_predictions[_<target>]
+    predictions: {name: ml_predictions, comment: Scored segments}   # dataset ml_predictions[_<target>]
   dashboards:
     ops:
       display_name: demo_model ops                               # "[<target>] ..." off prod
@@ -517,7 +517,7 @@ variables:
     lookup: {job: dbt-demo-features}   # "<bundle>-<job>" (its Workflow on prod)
 resources:
   jobs:
-    roas_daily:
+    ratio_daily:
       schedule: {quartz_cron_expression: "0 0 16 * * ?", timezone_id: UTC}
       tasks:
         - task_key: features
@@ -544,23 +544,23 @@ resources:
 
 ```yaml
 trigger:                               # runs once the features land, instead of a schedule
-  table_update: {table_names: [my-gcp-project.ml_feature_store.fs_tapjoy_roas__features]}
+  table_update: {table_names: [my-gcp-project.ml_feature_store.fs_vendor_a__features]}
 tasks:
   - task_key: serve
     batch_serve_task:
-      window_days: 14                  # install_date in [today - 14, today]
+      window_days: 14                  # snapshot_date in [today - 14, today]
       models:
-        - {model: tapjoy_roas_d30, job_cluster_key: tapjoy-roas-d30, python_file: serve.py}   # + window_days
-        - model: ga_pltv_d14
-          job_cluster_key: ga-pltv-d14
+        - {model: vendor_a_forecast_30d, job_cluster_key: vendor-a-forecast-30d, python_file: serve.py}   # + window_days
+        - model: forecast_14d
+          job_cluster_key: forecast-14d
           python_file: serve.py
           window: {from_days: -17, to_days: 0}   # days from the run's date; instead of window_days
           output:                               # how its job writes (window().output); default replace_window
             mode: append                        # replace_window | append | insert_new | merge
-            keys: [install_date, user_pseudo_id, product_id_encrypted]
-            watermark: [product_id_encrypted]   # append past each group's latest install_date
+            keys: [snapshot_date, user_pseudo_id, product_id]
+            watermark: [product_id]   # append past each group's latest snapshot_date
             partition_by: predict_date          # set when the first write creates the table
-            cluster_by: [product_id_encrypted, install_date]
+            cluster_by: [product_id, snapshot_date]
             stamps: {predict_date: run_date, data_date: data_date}
       parameters:                      # run options, filled per run; empty ones are dropped
         from_date: "{{job.parameters.from_date}}"
@@ -578,16 +578,16 @@ optional, as a Databricks batch inference notebook calls `score_batch` and write
 from gcpbricks import batch_serve
 
 w = batch_serve.window()                                     # the model, FROM_DATE, TO_DATE, the run's start
-model = batch_serve.load_model("models:/roas_d30@champion")  # resolved once per run
+model = batch_serve.load_model("models:/forecast_30d@champion")  # resolved once per run
 for f, t in batch_serve.task_chunks(w.from_date, w.to_date, chunk_days=7):   # this Cloud Run task's share
     rows = batch_serve.read_window("ml_feature_store.fs_demo_features", f, t,
-                                   date_col="install_date", as_of_ms=w.started_ms)
-    preds = batch_serve.score_batch(model, rows, prediction_col="predicted_roas_d30",
-                                    keep_columns=["install_date", "campaign_id"])
+                                   date_col="snapshot_date", as_of_ms=w.started_ms)
+    preds = batch_serve.score_batch(model, rows, prediction_col="predicted_forecast_30d",
+                                    keep_columns=["snapshot_date", "campaign_id"])
     # ... the model's own post-processing ...
-    batch_serve.write_window(preds, "my-gcp-project.ml_predictions.roas_d30_predictions",
-                             f, t, date_col="install_date", entity_id_columns=["install_date", "campaign_id"],
-                             prediction_col="predicted_roas_d30")
+    batch_serve.write_window(preds, "my-gcp-project.ml_predictions.forecast_30d_predictions",
+                             f, t, date_col="snapshot_date", entity_id_columns=["snapshot_date", "campaign_id"],
+                             prediction_col="predicted_forecast_30d")
     batch_serve.chunk_done(f, t)                             # a repair of this run skips it
 ```
 
@@ -608,7 +608,7 @@ for f, t in batch_serve.task_chunks(w.from_date, w.to_date, chunk_days=7):   # t
   dates, where `output.watermark` says to write as insert_new by `keys` instead. The first
   write creates the table partitioned by `partition_by` (default the date column) and
   clustered by `cluster_by` (default model_id).
-- `write_window` replaces the table's rows for `[f, t]` by (install_date in the window,
+- `write_window` replaces the table's rows for `[f, t]` by (snapshot_date in the window,
   model_id) in one transaction, creating the table on the first write and adding new columns.
   It checks first (columns, model_id, inside the window, finite, unique keys) and refuses a
   batch with fewer rows than `min_keep_ratio` (0.5) x the rows it replaces. Reruns replace,
@@ -644,7 +644,7 @@ predictions (the entity columns, `date_col`, `prediction_col`, model_id, scored_
 use; `prediction_expr` picks the prediction out of Vertex's output row.
 
 A backfill: `mlops bundle run serve -t dev --params from_date=2026-09-01,to_date=2026-09-30`;
-some models only: `--params only_models=roas_d30`. A run's error names the models that failed.
+some models only: `--params only_models=forecast_30d`. A run's error names the models that failed.
 
 ## Feature store SDK
 
@@ -657,9 +657,9 @@ models:
     meta:
       feature_store:
         offline_table: ml_feature_store.fs_demo_features   # what the engine reads
-        families: {acquisition: [cost, installs, "cost_day_*"]}  # optional column globs
+        families: {acquisition: [cost, signups, "cost_day_*"]}  # optional column globs
     columns:
-      - {name: install_date, data_type: String, meta: {entity: true}}             # a key
+      - {name: snapshot_date, data_type: String, meta: {entity: true}}             # a key
       - {name: feature_timestamp, data_type: DateTime, meta: {feature_timestamp: true}}
       - {name: cost, data_type: Float64, meta: {family: acquisition}}            # a feature
 ```
@@ -680,21 +680,21 @@ fv.join_keys, fv.timestamp_field, fv.families
 df = fv.family("acquisition").get_features_in_range(start, end)   # the window's rows
 lbl = fs.get_feature_view("lbl_demo__labels")
 ts = fs.create_training_set(events, [fv.family("acquisition"),      # a family
-                                     fv[["total_rev_day_7_cum"]],   # chosen features
-                                     lbl[["total_rev_day_30_cum"]]])
+                                     fv[["total_val_day_7_cum"]],   # chosen features
+                                     lbl[["total_val_day_30_cum"]]])
 train_df = ts.load_df()                   # point-in-time join onto the events
 train_df = ts.load_df(float32=True)       # float64 columns as float32: half the memory
 # A view's own rows in a window as the events; labels are a label view's features.
 ts = fs.create_training_set(fv.spine(start, end, where="cost > 0"),
-                            ["lbl_demo__labels:total_rev_day_30_cum"],
+                            ["lbl_demo__labels:total_val_day_30_cum"],
                             exclude_columns=["feature_timestamp"])
 ts.write_parquet("/tmp/train.parquet")    # streamed batch by batch, never all in memory
 ts.to_sql()                               # the one query it runs, in the engine's dialect
 # A features.yaml's SQL blocks (feature_manager), computed in the same query:
-bfv = fs.batch_feature_view("roas_d30__sql", "fs_demo_features",
+bfv = fs.batch_feature_view("forecast_30d__sql", "fs_demo_features",
                             compile_spec(spec).sql_stage(), at_days=7)
 ts = fs.create_training_set(fv.spine(start, end), [bfv, fv[["platform"]]])
-svc = FeatureService("roas_d30", [fv.family("acquisition")], spine_inputs=["platform"])
+svc = FeatureService("forecast_30d", [fv.family("acquisition")], spine_inputs=["platform"])
 svc.save(model_dir)                       # feature_spec.json next to the model
 scored = fs.score_batch(model, events, FeatureService.load(model_dir))
 fv.table_schema()                         # the live table's {column: type}
@@ -710,8 +710,8 @@ reusing one the earlier release built.
 
 | Engine | `offline_table` | For |
 |---|---|---|
-| `bigquery` (default) | `dataset.table` or `project.dataset.table`; an Iceberg table BigQuery sees (BigQuery-managed, or in the BigLake metastore) reads like any other | production |
-| `spark` (`[spark]` extra: pyspark 4, Java 17) | a Spark table: `spark_catalog=` is prefixed onto a `dataset.table`, e.g. the Iceberg catalog `spark_conf=` configures; or a Parquet path | Spark and Iceberg once DE's cluster exists; `spark_conf` points the session at it |
+| `bigquery` (default) | `dataset.table` or `project.dataset.table`; an Iceberg table BigQuery sees (BigQuery-managed, or in the BigLake metastore) reads like any other | a BigQuery warehouse (native or Iceberg tables) |
+| `spark` (`[spark]` extra: pyspark 4, Java 17) | a Spark table: `spark_catalog=` is prefixed onto a `dataset.table`, e.g. the Iceberg catalog `spark_conf=` configures; or a Parquet path | tables in a Spark catalog or Parquet; `spark_conf` points the session at the catalog |
 | `duckdb` | a local Parquet path | tests (CI has no GCP credentials) and local files |
 
 Every read is one query: Ibis builds it over the views' declared columns and compiles it to
@@ -722,7 +722,7 @@ point-in-time join is the latest row at or before each event, per view, on that 
 
 `data_type` in dbt-features is the adapter's own, BigQuery's, Spark's or ClickHouse's, and
 maps to a feature type case-insensitively; arrays, structs and maps aren't features. Keys
-are strings or integers: a date key such as `install_date` is a `'YYYY-MM-DD'` `STRING`.
+are strings or integers: a date key such as `snapshot_date` is a `'YYYY-MM-DD'` `STRING`.
 
 | Tecton / Databricks | Here |
 |---|---|
@@ -738,7 +738,7 @@ are strings or integers: a date key such as `install_date` is a `'YYYY-MM-DD'` `
 | `score_batch` | `fs.score_batch(model, events, svc)`: `model.predict` on the service's columns, in order; a feature dbt-features has since dropped fails, not a silent NaN |
 
 The as-of match has no age limit, as in Databricks, so a table whose grain includes a date
-(one row per cohort per `install_date`) keeps that date as a key: the join never takes
+(one row per segment per `snapshot_date`) keeps that date as a key: the join never takes
 another day's row. `FeatureStore(as_of=datetime)` reads every table as it was at that time
 (BigQuery time travel, the last 7 days), so a run that reads in several steps, such as a
 scoring job reading in chunks, sees one version of each table while dbt-features rewrites it.

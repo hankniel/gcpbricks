@@ -9,7 +9,7 @@ Spark and DuckDB.
     fv = fs.get_feature_view("fs_demo_features")
     fv.join_keys, fv.timestamp_field, fv.feature_names
     df = fv.family("acquisition").get_features_in_range(start, end)   # the window's rows
-    svc = FeatureService("roas_d30", [fv[["cost", "installs"]], fv.family("revenue")])
+    svc = FeatureService("forecast_30d", [fv[["cost", "signups"]], fv.family("revenue")])
     ts = fs.create_training_set(events, feature_service=svc)          # as of each event
     df = ts.load_df()
     ts = fs.create_training_set(fv.spine(start, end, where="cost > 0"),    # a view's rows
@@ -190,7 +190,7 @@ class FeatureService:
 
     name: str
     features: list[str]
-    #: Spine columns the model also reads as inputs (e.g. a cohort's platform).
+    #: Spine columns the model also reads as inputs (e.g. a segment's platform).
     spine_inputs: list[str] = field(default_factory=list)
 
     def __init__(self, name: str, features: list[FeatureReference | str], *,

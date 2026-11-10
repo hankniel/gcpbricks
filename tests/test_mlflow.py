@@ -66,7 +66,7 @@ def vertex(tmp_path, monkeypatch):
     monkeypatch.setenv("CI_COMMIT_SHA", "ABC123")
     monkeypatch.setattr(mlflow, "_backends", {"vertex://p/us-central1": fake})
     monkeypatch.setattr(mlflow, "_runs", [])
-    mlflow.set_experiment("roas-d30")
+    mlflow.set_experiment("forecast-30d")
     (tmp_path / "factor.txt").write_text("2")
     return fake
 
@@ -78,13 +78,13 @@ def _log(tmp_path, run_name="Run 1", **kw):
         mlflow.set_tag("trigger", "ci")
         info = mlflow.pyfunc.log_model("model", python_model=Doubler(),
                                        artifacts={"factor": str(tmp_path / "factor.txt")},
-                                       registered_model_name="roas_d30", **kw)
+                                       registered_model_name="forecast_30d", **kw)
     return run, info
 
 
 def test_a_run_logs_params_metrics_and_tags_to_its_experiment(vertex, tmp_path):
     run, _ = _log(tmp_path)
-    logged = vertex.runs[("roas-d30", "run-1")]
+    logged = vertex.runs[("forecast-30d", "run-1")]
     assert run.info.run_id == "run-1"
     assert logged["metrics"] == {"mape": 0.2}
     assert logged["params"] == {"lr": 0.1, "tag_trigger": "ci",
@@ -95,14 +95,14 @@ def test_a_failed_run_is_still_logged_as_failed(vertex):
     with pytest.raises(RuntimeError), mlflow.start_run(run_name="boom"):
         mlflow.log_metric("x", 1)
         raise RuntimeError("boom")
-    assert vertex.runs[("roas-d30", "boom")]["params"]["status"] == "FAILED"
+    assert vertex.runs[("forecast-30d", "boom")]["params"]["status"] == "FAILED"
     assert mlflow.active_run() is None
 
 
 def test_get_run_reads_a_logged_run_back_with_its_tags(vertex, tmp_path):
     _log(tmp_path)
     run = mlflow.get_run("run-1")
-    assert (run.info.run_id, run.info.status, run.info.experiment_id) == ("run-1", "FINISHED", "roas-d30")
+    assert (run.info.run_id, run.info.status, run.info.experiment_id) == ("run-1", "FINISHED", "forecast-30d")
     assert run.data.params == {"lr": 0.1} and run.data.metrics == {"mape": 0.2}
     assert run.data.tags == {"trigger": "ci", "mlflow.source.git.commit": "abc123"}
     with pytest.raises(mlflow.MlflowException, match="not found"):
@@ -123,22 +123,22 @@ def test_a_nested_run_is_tagged_with_its_parent(vertex):
 
 def test_log_model_saves_the_mlmodel_layout_and_registers_a_version(vertex, tmp_path):
     _, info = _log(tmp_path, tags={"model_id": "v42"})
-    d = tmp_path / "root" / "roas-d30" / "run-1" / "artifacts" / "model"
+    d = tmp_path / "root" / "forecast-30d" / "run-1" / "artifacts" / "model"
     mlmodel = yaml.safe_load((d / "MLmodel").read_text())
     assert mlmodel["flavors"]["python_function"]["artifacts"] == {"factor": {"path": "artifacts/factor.txt"}}
     assert mlmodel["run_id"] == "run-1" and (d / "python_model.pkl").is_file()
     assert info.model_uri == "runs:/run-1/model" and info.registered_model_version == "1"
-    mv = mlflow.MlflowClient().get_model_version("roas_d30", 1)
+    mv = mlflow.MlflowClient().get_model_version("forecast_30d", 1)
     assert mv.source == str(d) and mv.run_id == "run-1"
-    assert mv.tags == {"model_id": "v42", "mlflow_run_id": "run-1", "mlflow_experiment": "roas-d30",
+    assert mv.tags == {"model_id": "v42", "mlflow_run_id": "run-1", "mlflow_experiment": "forecast-30d",
                        "git_commit": "abc123"}
 
 
 def test_load_model_by_alias_version_and_run(vertex, tmp_path):
     _, info = _log(tmp_path)
     client = mlflow.MlflowClient()
-    client.set_registered_model_alias("roas_d30", "champion", info.registered_model_version)
-    for uri in ("models:/roas_d30@champion", "models:/roas_d30/1", "runs:/run-1/model"):
+    client.set_registered_model_alias("forecast_30d", "champion", info.registered_model_version)
+    for uri in ("models:/forecast_30d@champion", "models:/forecast_30d/1", "runs:/run-1/model"):
         model = mlflow.pyfunc.load_model(uri)
         assert model.predict([1, 2]) == [2, 4], uri
         assert model.metadata.run_id == "run-1"
@@ -149,25 +149,25 @@ def test_an_alias_names_exactly_one_version(vertex, tmp_path):
     _log(tmp_path, "a")
     _log(tmp_path, "b")
     client = mlflow.MlflowClient()
-    client.set_registered_model_alias("roas_d30", "champion", "1")
-    client.set_registered_model_alias("roas_d30", "champion", 2)
-    assert client.get_model_version_by_alias("roas_d30", "champion").version == "2"
-    assert client.get_registered_model("roas_d30").aliases == {"champion": "2"}
-    client.delete_registered_model_alias("roas_d30", "champion")
+    client.set_registered_model_alias("forecast_30d", "champion", "1")
+    client.set_registered_model_alias("forecast_30d", "champion", 2)
+    assert client.get_model_version_by_alias("forecast_30d", "champion").version == "2"
+    assert client.get_registered_model("forecast_30d").aliases == {"champion": "2"}
+    client.delete_registered_model_alias("forecast_30d", "champion")
     with pytest.raises(mlflow.MlflowException):
-        client.get_model_version_by_alias("roas_d30", "champion")
+        client.get_model_version_by_alias("forecast_30d", "champion")
 
 
 def test_version_tags_set_delete_and_search(vertex, tmp_path):
     _log(tmp_path, "a", tags={"model_id": "v1"})
     _log(tmp_path, "b", tags={"model_id": "v2"})
     client = mlflow.MlflowClient()
-    client.set_model_version_tag("roas_d30", "1", "serve_eligible", "true")
-    assert [mv.version for mv in client.search_model_versions("name='roas_d30'")] == ["2", "1"]
-    hits = client.search_model_versions("name='roas_d30' and tags.serve_eligible='true'")
+    client.set_model_version_tag("forecast_30d", "1", "serve_eligible", "true")
+    assert [mv.version for mv in client.search_model_versions("name='forecast_30d'")] == ["2", "1"]
+    hits = client.search_model_versions("name='forecast_30d' and tags.serve_eligible='true'")
     assert [mv.version for mv in hits] == ["1"]
-    client.delete_model_version_tag("roas_d30", "1", "serve_eligible")
-    assert client.search_model_versions("name='roas_d30' AND tags.serve_eligible='true'") == []
+    client.delete_model_version_tag("forecast_30d", "1", "serve_eligible")
+    assert client.search_model_versions("name='forecast_30d' AND tags.serve_eligible='true'") == []
 
 
 @pytest.mark.parametrize("tags", [{"Model_ID": "v1"}, {"model_id": "V1"}, {"model_id": "a.b"}, {"k": "x" * 64}])
@@ -178,7 +178,7 @@ def test_version_tags_must_be_valid_vertex_labels(vertex, tmp_path, tags):
 
 def test_search_rejects_filters_it_cannot_run(vertex):
     with pytest.raises(mlflow.MlflowException, match="only name"):
-        mlflow.MlflowClient().search_model_versions("name='roas_d30' and version_number > 3")
+        mlflow.MlflowClient().search_model_versions("name='forecast_30d' and version_number > 3")
     with pytest.raises(mlflow.MlflowException, match="needs name"):
         mlflow.MlflowClient().search_model_versions("tags.a='b'")
 
@@ -233,11 +233,11 @@ def test_a_signature_is_saved_as_mlflows_and_checked_on_predict(vertex, tmp_path
     from gcpbricks.features import FeatureService
 
     df = pd.DataFrame({"a": [1.0, 2.0], "b": [3, 4], "key": ["x", "y"]})
-    spec = FeatureService("summer", ["fs_cohort:a", "fs_cohort:b"], spine_inputs=["key"])
+    spec = FeatureService("summer", ["fs_segment:a", "fs_segment:b"], spine_inputs=["key"])
     with mlflow.start_run(run_name="sig"):
         info = mlflow.pyfunc.log_model("model", python_model=Summer(), registered_model_name="summer",
                                        signature=mlflow.models.infer_signature(df), feature_spec=spec)
-    d = tmp_path / "root" / "roas-d30" / "sig" / "artifacts" / "model"
+    d = tmp_path / "root" / "forecast-30d" / "sig" / "artifacts" / "model"
     sig = yaml.safe_load((d / "MLmodel").read_text())["signature"]
     assert sig["outputs"] is None and sig["params"] is None
     assert yaml.safe_load(sig["inputs"]) == [{"type": "double", "name": "a", "required": True},
@@ -254,7 +254,7 @@ def test_a_signature_is_saved_as_mlflows_and_checked_on_predict(vertex, tmp_path
 
 def test_a_model_saved_without_a_signature_or_spec_loads_as_before(vertex, tmp_path):
     _, info = _log(tmp_path)
-    model = mlflow.pyfunc.load_model(f"models:/roas_d30/{info.registered_model_version}")
+    model = mlflow.pyfunc.load_model(f"models:/forecast_30d/{info.registered_model_version}")
     assert model.metadata.get_input_schema() is None and model.metadata.feature_spec is None
     assert model.predict([3]) == [6]
 
@@ -302,13 +302,13 @@ def test_evaluate_computes_mlflows_regressor_and_custom_metrics_and_logs_them(ve
     assert r.metrics.keys() == expected.keys()
     assert all(r.metrics[k] == pytest.approx(v, abs=1e-12) for k, v in expected.items())
     assert r.run_id == "gate" and r.artifacts == {}
-    assert vertex.runs[("roas-d30", "gate")]["metrics"]["wacc"] == pytest.approx(77.77777777777779)
+    assert vertex.runs[("forecast-30d", "gate")]["metrics"]["wacc"] == pytest.approx(77.77777777777779)
 
 
 def test_evaluate_without_an_active_run_logs_one_and_ends_it(vertex):
     r = mlflow.evaluate(data=_eval_frame(), predictions="p", targets="y", model_type="regressor")
     assert mlflow.active_run() is None
-    assert vertex.runs[("roas-d30", r.run_id)]["metrics"]["example_count"] == 4
+    assert vertex.runs[("forecast-30d", r.run_id)]["metrics"]["example_count"] == 4
 
 
 def test_evaluate_scores_a_registered_model_by_uri(vertex):
@@ -430,7 +430,7 @@ def test_matches_real_mlflow(tmp_path, monkeypatch):
 
 def _features(tmp_path, run):
     import json
-    return json.loads((tmp_path / "root" / "roas-d30" / run / "artifacts" / "model" / "features.json").read_text())
+    return json.loads((tmp_path / "root" / "forecast-30d" / run / "artifacts" / "model" / "features.json").read_text())
 
 
 def test_a_signature_and_a_feature_spec_say_what_a_model_reads_and_is_fit_on(vertex, tmp_path):
@@ -438,7 +438,7 @@ def test_a_signature_and_a_feature_spec_say_what_a_model_reads_and_is_fit_on(ver
     from gcpbricks.features import FeatureService
 
     df = pd.DataFrame({"a": [1.0], "b": [3]})
-    spec = FeatureService("summer", ["fs_cohort:a", "fs_cohort:b", "fs_cohort:c"], spine_inputs=["key"])
+    spec = FeatureService("summer", ["fs_segment:a", "fs_segment:b", "fs_segment:c"], spine_inputs=["key"])
     with mlflow.start_run(run_name="feats"):
         mlflow.pyfunc.log_model("model", python_model=Summer(), signature=mlflow.models.infer_signature(df),
                                 feature_spec=spec)
@@ -446,7 +446,7 @@ def test_a_signature_and_a_feature_spec_say_what_a_model_reads_and_is_fit_on(ver
     assert got["read"] == ["a", "b", "c", "key"] and got["model_inputs"] == {"model": ["a", "b"]}
     assert got["counts"] == {"read": 4, "model_inputs": {"model": 2}, "computed": None}
     assert got["sources"] == {"read": "feature service summer", "model_inputs": "MLmodel signature"}
-    params = vertex.runs[("roas-d30", "feats")]["params"]
+    params = vertex.runs[("forecast-30d", "feats")]["params"]
     assert (params["n_features_read"], params["n_model_inputs"]) == (4, 2)
 
 
@@ -455,13 +455,13 @@ def test_a_feature_pipeline_says_what_it_fetches_computes_and_feeds_each_input_s
     from gcpbricks.feature_manager import FeaturePipeline
 
     pipe = FeaturePipeline({"define": [{"name": "spend_x2", "expr": "spend * 2"}],
-                            "inputs": {"default": ["spend_x2", "installs"]}})
+                            "inputs": {"default": ["spend_x2", "signups"]}})
     with mlflow.start_run(run_name="pipe"):
         mlflow.pyfunc.log_model("model", python_model=Summer(), features=pipe)
     got = _features(tmp_path, "pipe")
-    assert set(got["read"]) == {"spend", "installs"} and got["computed"] == ["spend_x2"]
-    assert got["model_inputs"] == {"default": ["spend_x2", "installs"]}
-    assert vertex.runs[("roas-d30", "pipe")]["params"]["n_features_computed"] == 1
+    assert set(got["read"]) == {"spend", "signups"} and got["computed"] == ["spend_x2"]
+    assert got["model_inputs"] == {"default": ["spend_x2", "signups"]}
+    assert vertex.runs[("forecast-30d", "pipe")]["params"]["n_features_computed"] == 1
 
 
 def test_a_model_logged_by_hand_logs_its_features_beside_it(vertex, tmp_path):
@@ -469,7 +469,7 @@ def test_a_model_logged_by_hand_logs_its_features_beside_it(vertex, tmp_path):
         mlflow.log_features(read=["level", "colors"], model_inputs={"policy": ["tokens"], "value": ["tokens", "level"]})
     got = _features(tmp_path, "torch")
     assert got["counts"]["model_inputs"] == {"policy": 1, "value": 2} and got["sources"]["read"] == "logged"
-    assert vertex.runs[("roas-d30", "torch")]["params"]["n_model_inputs"] == 2
+    assert vertex.runs[("forecast-30d", "torch")]["params"]["n_model_inputs"] == 2
     with pytest.raises(ValueError, match="needs read"), mlflow.start_run(run_name="empty"):
         mlflow.log_features()
 
@@ -482,7 +482,7 @@ def _frames():
     rng = np.random.default_rng(0)
     n = 400
     df = pd.DataFrame({"spend": rng.uniform(0, 10, n), "country": rng.choice(["US", "JP", "VN"], n),
-                       "install_date": pd.date_range("2026-10-01", periods=n, freq="h")})
+                       "snapshot_date": pd.date_range("2026-10-01", periods=n, freq="h")})
     df.loc[::10, "spend"] = None
     df["paid"] = (df["spend"].fillna(0) > 5).astype(int)
     return df.iloc[:300], df.iloc[300:]
@@ -494,7 +494,7 @@ def test_a_training_summary_holds_the_splits_feature_stats_label_and_importances
     train, valid = _frames()
     model = sklearn_tree.DecisionTreeClassifier(max_depth=2, random_state=0).fit(train[["spend"]].fillna(0), train["paid"])
     s = mlflow.training_summary(train=train, valid=valid, label="paid", label_definition="paid within 7 days",
-                                time_column="install_date", features=["spend", "country"], model=model,
+                                time_column="snapshot_date", features=["spend", "country"], model=model,
                                 query="SELECT *  FROM t", snapshot="gs://b/snap")
     json.dumps(s, allow_nan=False)  # no NaN reaches the file
     assert s["data"]["splits"]["train"]["rows"] == 300 and s["data"]["splits"]["valid"]["from"].startswith("2026-10-13")
@@ -519,13 +519,13 @@ def test_log_model_saves_the_training_summary_and_counts_rows_as_params(vertex, 
     s = mlflow.training_summary(train=train, valid=valid, label="paid", features=["spend"])
     with mlflow.start_run(run_name="trained"):
         mlflow.pyfunc.log_model("model", python_model=Summer(), training=s)
-    saved = json.loads((tmp_path / "root" / "roas-d30" / "trained" / "artifacts" / "model" / "training_summary.json").read_text())
+    saved = json.loads((tmp_path / "root" / "forecast-30d" / "trained" / "artifacts" / "model" / "training_summary.json").read_text())
     assert saved["data"]["splits"]["valid"]["rows"] == 100
-    params = vertex.runs[("roas-d30", "trained")]["params"]
+    params = vertex.runs[("forecast-30d", "trained")]["params"]
     assert (params["n_train_rows"], params["n_valid_rows"]) == (300, 100) and 0 < params["label_positive_rate"] < 1
     with mlflow.start_run(run_name="by-hand"):
         mlflow.log_training(s)
-    assert vertex.runs[("roas-d30", "by-hand")]["params"]["n_train_rows"] == 300
+    assert vertex.runs[("forecast-30d", "by-hand")]["params"]["n_train_rows"] == 300
 
 
 def _clf_frame():

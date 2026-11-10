@@ -15,7 +15,7 @@ class FakeVertex:
 
     def ai_list(self, path, key, **params):
         if path == "metadataStores/default/contexts" and params.get("filter", "").startswith("schema_title"):
-            return [{"name": f"{P}/metadataStores/default/contexts/roas", "displayName": "roas",
+            return [{"name": f"{P}/metadataStores/default/contexts/forecast", "displayName": "forecast",
                      "updateTime": "2026-10-02", "metadata": {}},
                     {"name": f"{P}/metadataStores/default/contexts/gone", "displayName": "gone",
                      "metadata": {"experiment_deleted": True}}]
@@ -27,11 +27,11 @@ class FakeVertex:
                     {"name": f"{P}/c/trial0", "displayName": "run1-trial-0", "schemaTitle": "system.ExperimentRun",
                      "createTime": "2026-10-01", "metadata": {"_params": {"tag_mlflow.parentRunId": "run1"}}}]
         if path == "models":
-            return [{"name": f"{P}/models/m1", "displayName": "roas_d30"}]
+            return [{"name": f"{P}/models/m1", "displayName": "forecast_30d"}]
         if path.endswith(":listVersions"):
             return [{"versionId": v, "versionAliases": a, "labels": {"git": v}} for v, a in self.versions.items()]
         if path == "endpoints":
-            return [{"name": f"{P}/endpoints/9", "displayName": "roas-online",
+            return [{"name": f"{P}/endpoints/9", "displayName": "forecast-online",
                      "trafficSplit": {"d1": 90, "d2": 10},
                      "deployedModels": [{"id": "d1", "displayName": "main", "model": f"{P}/models/m1@2",
                                          "modelVersionId": "2", "dedicatedResources": {
@@ -43,9 +43,9 @@ class FakeVertex:
 
     def ai_get(self, path, **params):
         if path.startswith("metadataStores"):
-            return {"name": f"{P}/metadataStores/default/contexts/roas", "displayName": "roas"}
+            return {"name": f"{P}/metadataStores/default/contexts/forecast", "displayName": "forecast"}
         if path.startswith("models/"):
-            return {"name": f"{P}/models/m1", "displayName": "roas_d30"}
+            return {"name": f"{P}/models/m1", "displayName": "forecast_30d"}
         return self.ai_list("endpoints", "endpoints")[0]
 
     def ai_post(self, path, body):
@@ -68,11 +68,11 @@ def vx():
 
 
 def test_experiments_hide_deleted_ones(vx):
-    assert [e["name"] for e in M.experiments(vx)] == ["roas"]
+    assert [e["name"] for e in M.experiments(vx)] == ["forecast"]
 
 
 def test_an_experiments_runs_carry_params_and_metrics(vx):
-    runs = {r["name"]: r for r in M.experiment(vx, "roas")["runs"]}
+    runs = {r["name"]: r for r in M.experiment(vx, "forecast")["runs"]}
     assert next(iter(runs)) == "pipe"  # newest first
     run1 = runs["run1"]
     assert (run1["type"], run1["params"], run1["metrics"]) == ("Run", {"lr": 0.1}, {"rmse": 2.5})
@@ -82,7 +82,7 @@ def test_an_experiments_runs_carry_params_and_metrics(vx):
 
 def test_models_list_their_versions_and_aliases(vx):
     m = M.models(vx)[0]
-    assert (m["name"], m["latest"], m["versions"], m["aliases"]) == ("roas_d30", "3", 3, {"champion": "2"})
+    assert (m["name"], m["latest"], m["versions"], m["aliases"]) == ("forecast_30d", "3", 3, {"champion": "2"})
     v = M.model(vx, "m1")["versions"]
     assert [x["version"] for x in v] == ["3", "2", "1"] and v[2]["default"] is True and v[2]["aliases"] == []
 
@@ -117,11 +117,11 @@ def test_a_version_links_its_training_run_and_the_endpoints_serving_it(vx):
                                           "containerSpec": {"imageUri": "img"}}, {"versionId": "1", "labels": {}}]
                                          if path.endswith(":listVersions") else real(path, key, **p))
     m = M.model(vx, "m1")
-    assert m["experiment"] == "roas-d30"
+    assert m["experiment"] == "forecast-30d"
     v2, v1 = m["versions"]
-    assert v2["source_run"] == {"experiment": "roas-d30", "id": "run1", "name": "run1", "state": "",
+    assert v2["source_run"] == {"experiment": "forecast-30d", "id": "run1", "name": "run1", "state": "",
                                 "params": {"lr": 0.1}, "metrics": {"rmse": 2.5}}
-    assert v2["serving"] == [{"id": "9", "name": "roas-online", "traffic": 90}] and v2["image"] == "img"
+    assert v2["serving"] == [{"id": "9", "name": "forecast-online", "traffic": 90}] and v2["image"] == "img"
     assert v1["source_run"] is None and v1["serving"] == []
 
 
@@ -130,12 +130,12 @@ def test_a_version_logged_by_mlflow_names_its_own_experiment_and_run(vx):
 
     def listing(path, key, **p):
         if path.endswith(":listVersions"):
-            return [{"versionId": "3", "labels": {"mlflow_experiment": "roas-d30", "mlflow_run_id": "run1",
+            return [{"versionId": "3", "labels": {"mlflow_experiment": "forecast-30d", "mlflow_run_id": "run1",
                                                   "model_id": "elsewhere"}}]
         return real(path, key, **p)
     vx.ai_list = listing
     v3 = M.model(vx, "m1")["versions"][0]
-    assert (v3["source_run"]["experiment"], v3["source_run"]["name"]) == ("roas-d30", "run1")
+    assert (v3["source_run"]["experiment"], v3["source_run"]["name"]) == ("forecast-30d", "run1")
 
 
 def test_a_model_without_an_experiment_has_no_source_runs(vx):
@@ -144,7 +144,7 @@ def test_a_model_without_an_experiment_has_no_source_runs(vx):
         if path.startswith("metadataStores"):
             r = requests.Response(); r.status_code = 404
             raise requests.HTTPError(response=r)
-        return {"name": f"{P}/models/m1", "displayName": "roas_d30"}
+        return {"name": f"{P}/models/m1", "displayName": "forecast_30d"}
     vx.ai_get = missing
     m = M.model(vx, "m1")
     assert m["experiment"] is None and all(v["source_run"] is None for v in m["versions"])
@@ -192,7 +192,7 @@ def test_a_retired_model_still_served_is_not_deleted():
     vx = FakeVertex()
     vx.ai_delete = lambda path: pytest.fail("deleted a served model")
     get = vx.ai_get
-    vx.ai_get = lambda path, **p: ({"name": f"{P}/models/m1", "displayName": "roas_d30",
+    vx.ai_get = lambda path, **p: ({"name": f"{P}/models/m1", "displayName": "forecast_30d",
                                     "labels": {"mlops_retired": "2026-10-19"}} if path == "models/m1" else get(path, **p))
     with pytest.raises(ValueError, match="still deployed"):
         M.delete_model(vx, "admin@example.com", "m1")

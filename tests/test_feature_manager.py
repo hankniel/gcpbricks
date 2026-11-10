@@ -27,23 +27,23 @@ def _frame(n: int = 40, seed: int = 0) -> pd.DataFrame:
     df = pd.DataFrame({
         "platform": rng.choice(["ios", "android"], n),
         "cost": rng.uniform(1, 100, n),
-        **{f"rev_day_{d}": rng.uniform(0, 10, n) for d in range(4)},
+        **{f"val_day_{d}": rng.uniform(0, 10, n) for d in range(4)},
     })
-    df["rev_day_3_cum"] = df[[f"rev_day_{d}" for d in range(4)]].sum(axis=1)
-    df["rev_day_1_cum"] = df[["rev_day_0", "rev_day_1"]].sum(axis=1)
+    df["val_day_3_cum"] = df[[f"val_day_{d}" for d in range(4)]].sum(axis=1)
+    df["val_day_1_cum"] = df[["val_day_0", "val_day_1"]].sum(axis=1)
     return df
 
 
 SPEC = {
     "vars": {"days": [0, 1, 2, 3], "eps": 1e-4},
     "define": [
-        {"name": "rev_growth_d{x}_d{y}", "expr": "(rev_day_{y}_cum - rev_day_{x}_cum) / (rev_day_{x}_cum + eps)",
+        {"name": "rev_growth_d{x}_d{y}", "expr": "(val_day_{y}_cum - val_day_{x}_cum) / (val_day_{x}_cum + eps)",
          "for_each": {"x,y": [[1, 3]]}},
-        {"name": "roas_daily", "expr": "cols('rev_day_{d}', d=days) / maximum(cost, 1e-12)", "keep": False},
-        {"name": "log_roas", "expr": "log1p(row_sum(roas_daily))", "keep": False},
-        {"name": "log_roas_med", "fit": "median", "of": "log_roas", "by": "platform", "keep": False},
-        {"name": "roas_alpha", "expr": "log_roas - log_roas_med"},
-        {"name": "roas_std", "expr": "row_std(roas_daily)"},
+        {"name": "ratio_daily", "expr": "cols('val_day_{d}', d=days) / maximum(cost, 1e-12)", "keep": False},
+        {"name": "log_ratio", "expr": "log1p(row_sum(ratio_daily))", "keep": False},
+        {"name": "log_ratio_med", "fit": "median", "of": "log_ratio", "by": "platform", "keep": False},
+        {"name": "ratio_alpha", "expr": "log_ratio - log_ratio_med"},
+        {"name": "forecast_std", "expr": "row_std(ratio_daily)"},
         {"name": "cost_bin", "fit": "quantile_bin", "of": "cost", "q": Q},
     ],
 }
@@ -70,7 +70,7 @@ def test_spec_rejects_malformed_entries(entry):
 
 def test_for_each_expands_names_and_exprs_and_keeps_cols_placeholders():
     plan = compile_spec({"vars": {"days": [1, 3, 7]}, "define": [
-        {"name": "g_d{x}_d{y}", "expr": "rev_day_{y}_cum / rev_day_{x}_cum", "for_each": {"x,y": {"pairs": "days"}}},
+        {"name": "g_d{x}_d{y}", "expr": "val_day_{y}_cum / val_day_{x}_cum", "for_each": {"x,y": {"pairs": "days"}}},
         {"name": "s_{p}", "expr": "row_sum(cols('{p}_day_{d}', d=range(0, 2)))", "for_each": {"p": ["a", "b"]}},
     ]})
     assert plan.outputs == ("g_d1_d3", "g_d1_d7", "g_d3_d7", "s_a", "s_b")
@@ -79,10 +79,10 @@ def test_for_each_expands_names_and_exprs_and_keeps_cols_placeholders():
 
 def test_plan_separates_frame_columns_from_features():
     plan = compile_spec(SPEC)
-    assert set(plan.raw_columns) == {"rev_day_3_cum", "rev_day_1_cum", "cost", "platform",
-                                     "rev_day_0", "rev_day_1", "rev_day_2", "rev_day_3"}
-    assert plan.outputs == ("rev_growth_d1_d3", "roas_alpha", "roas_std", "cost_bin")
-    assert plan.intermediates == ("log_roas", "log_roas_med")
+    assert set(plan.raw_columns) == {"val_day_3_cum", "val_day_1_cum", "cost", "platform",
+                                     "val_day_0", "val_day_1", "val_day_2", "val_day_3"}
+    assert plan.outputs == ("rev_growth_d1_d3", "ratio_alpha", "forecast_std", "cost_bin")
+    assert plan.intermediates == ("log_ratio", "log_ratio_med")
 
 
 @pytest.mark.parametrize("expr", [
@@ -114,19 +114,19 @@ def test_compile_rejects_bad_structure(define, match):
 def test_expressions_match_the_numpy_they_stand_for():
     df = _frame()
     out = FeaturePipeline(SPEC).fit_transform(df)
-    roas = df[[f"rev_day_{d}" for d in range(4)]].to_numpy() / df["cost"].to_numpy()[:, None]
+    forecast = df[[f"val_day_{d}" for d in range(4)]].to_numpy() / df["cost"].to_numpy()[:, None]
     np.testing.assert_allclose(out["rev_growth_d1_d3"],
-                               (df["rev_day_3_cum"] - df["rev_day_1_cum"]) / (df["rev_day_1_cum"] + 1e-4))
-    np.testing.assert_allclose(out["roas_std"], roas.std(axis=1, ddof=0))
-    log_roas = np.log1p(roas.sum(axis=1))
-    med = pd.Series(log_roas).groupby(df["platform"].to_numpy()).median()
-    np.testing.assert_allclose(out["roas_alpha"], log_roas - df["platform"].map(med).to_numpy())
+                               (df["val_day_3_cum"] - df["val_day_1_cum"]) / (df["val_day_1_cum"] + 1e-4))
+    np.testing.assert_allclose(out["forecast_std"], forecast.std(axis=1, ddof=0))
+    log_ratio = np.log1p(forecast.sum(axis=1))
+    med = pd.Series(log_ratio).groupby(df["platform"].to_numpy()).median()
+    np.testing.assert_allclose(out["ratio_alpha"], log_ratio - df["platform"].map(med).to_numpy())
 
 
 def test_output_keeps_input_columns_and_drops_intermediates():
     df = _frame()
     out = FeaturePipeline(SPEC).fit_transform(df)
-    assert list(out.columns) == [*df.columns, "rev_growth_d1_d3", "roas_alpha", "roas_std", "cost_bin"]
+    assert list(out.columns) == [*df.columns, "rev_growth_d1_d3", "ratio_alpha", "forecast_std", "cost_bin"]
     assert out.index.equals(df.index)
 
 
@@ -256,24 +256,24 @@ def test_fit_entries_reject_params_their_stat_cannot_use(entry, error):
 
 
 SCHEMA_SPEC = {"define": [
-    {"name": "roas_d7", "expr": "rev_day_7 / maximum(cost, 1e-12)"},
-    {"name": "roas_med", "fit": "median", "of": "roas_d7", "by": "platform"},
-    {"name": "weekday", "expr": "(install_date + 3) % 7"},
+    {"name": "ratio_d7", "expr": "val_day_7 / maximum(cost, 1e-12)"},
+    {"name": "forecast_med", "fit": "median", "of": "ratio_d7", "by": "platform"},
+    {"name": "weekday", "expr": "(snapshot_date + 3) % 7"},
     {"name": "sib", "custom": "no_such_module:fn", "inputs": ["campaign"], "outputs": ["sib_n"]},
 ]}
-LIVE = {"rev_day_7": "FLOAT64", "cost": "FLOAT64", "platform": "STRING",
-        "install_date": "DATE", "campaign": "STRING"}
+LIVE = {"val_day_7": "FLOAT64", "cost": "FLOAT64", "platform": "STRING",
+        "snapshot_date": "DATE", "campaign": "STRING"}
 
 
 def test_plan_tells_columns_computed_with_from_group_keys_and_custom_inputs():
     plan = compile_spec(SCHEMA_SPEC, resolve_custom=False)
     assert set(plan.raw_columns) == set(LIVE)
-    assert plan.numeric_columns == ("rev_day_7", "cost", "install_date")
+    assert plan.numeric_columns == ("val_day_7", "cost", "snapshot_date")
 
 
 @pytest.mark.parametrize("schema, problems", [
     (LIVE, []),
-    ({**LIVE, "cost": "STRING"}, ["read as numbers but not numeric: ['cost is STRING (read by roas_d7)']"]),
+    ({**LIVE, "cost": "STRING"}, ["read as numbers but not numeric: ['cost is STRING (read by ratio_d7)']"]),
     ({k: v for k, v in LIVE.items() if k != "campaign"}, ["not in the feature table: ['campaign (read by sib)']"]),
 ])
 def test_schema_problems_name_the_column_and_the_feature_reading_it(schema, problems):
@@ -401,11 +401,11 @@ def test_rank_leaves_missing_values_out_of_the_grid_and_unranked():
 
 def test_a_feature_may_not_overwrite_an_input_column():
     with pytest.raises(ValueError, match="overwrite"):
-        FeaturePipeline({"define": [{"name": "cost", "expr": "rev_day_0 * 2"}]}).fit_transform(_frame())
+        FeaturePipeline({"define": [{"name": "cost", "expr": "val_day_0 * 2"}]}).fit_transform(_frame())
 
 
 def _add(df: pd.DataFrame) -> pd.DataFrame:
-    return pd.DataFrame({"r0_plus_r1": df["rev_day_0"] + df["rev_day_1"]}, index=df.index)
+    return pd.DataFrame({"r0_plus_r1": df["val_day_0"] + df["val_day_1"]}, index=df.index)
 
 
 def _bad_index(df: pd.DataFrame) -> pd.DataFrame:
@@ -414,15 +414,15 @@ def _bad_index(df: pd.DataFrame) -> pd.DataFrame:
 
 def test_custom_steps_feed_later_expressions_and_must_keep_the_index():
     spec = {"define": [
-        {"name": "addition", "custom": f"{__name__}:_add", "inputs": ["rev_day_0", "rev_day_1"],
+        {"name": "addition", "custom": f"{__name__}:_add", "inputs": ["val_day_0", "val_day_1"],
          "outputs": ["r0_plus_r1"], "keep": False},
         {"name": "doubled", "expr": "r0_plus_r1 * 2"},
     ]}
     df = _frame()
     pipe = FeaturePipeline(spec)
-    assert {"rev_day_0", "rev_day_1"} <= set(pipe.plan().raw_columns)
+    assert {"val_day_0", "val_day_1"} <= set(pipe.plan().raw_columns)
     out = pipe.fit_transform(df)
-    np.testing.assert_allclose(out["doubled"], 2 * (df["rev_day_0"] + df["rev_day_1"]))
+    np.testing.assert_allclose(out["doubled"], 2 * (df["val_day_0"] + df["val_day_1"]))
     assert "r0_plus_r1" not in out
     spec["define"][0]["custom"] = f"{__name__}:_bad_index"
     with pytest.raises(ValueError, match="index"):
@@ -451,22 +451,22 @@ def test_pickled_by_value_it_scores_without_importing_feature_manager(tmp_path):
 
 INPUTS_SPEC = {
     "vars": {"days": [1, 3]},
-    "define": [{"name": "roas", "expr": "rev_day_3_cum / cost"},
-               {"name": "roas_raw", "expr": "rev_day_1_cum / cost", "keep": False}],
-    "inputs": {"common": ["cost", {"each": "rev_day_{d}_cum", "d": "days"}],
-               "up": ["+common", "roas"],
-               "low": ["roas", "+common", "rev_day_0"]},
+    "define": [{"name": "forecast", "expr": "val_day_3_cum / cost"},
+               {"name": "forecast_raw", "expr": "val_day_1_cum / cost", "keep": False}],
+    "inputs": {"common": ["cost", {"each": "val_day_{d}_cum", "d": "days"}],
+               "up": ["+common", "forecast"],
+               "low": ["forecast", "+common", "val_day_0"]},
     "fetch": ["platform", "cost"],
 }
 
 
 def test_inputs_resolve_to_ordered_sets_and_drive_the_fetch():
     plan = compile_spec(INPUTS_SPEC)
-    assert plan.inputs == {"common": ("cost", "rev_day_1_cum", "rev_day_3_cum"),
-                           "up": ("cost", "rev_day_1_cum", "rev_day_3_cum", "roas"),
-                           "low": ("roas", "cost", "rev_day_1_cum", "rev_day_3_cum", "rev_day_0")}
+    assert plan.inputs == {"common": ("cost", "val_day_1_cum", "val_day_3_cum"),
+                           "up": ("cost", "val_day_1_cum", "val_day_3_cum", "forecast"),
+                           "low": ("forecast", "cost", "val_day_1_cum", "val_day_3_cum", "val_day_0")}
     # What the defines read, then raw columns the sets pass through, then `fetch`; once each.
-    assert plan.fetch_columns == ("rev_day_3_cum", "cost", "rev_day_1_cum", "rev_day_0", "platform")
+    assert plan.fetch_columns == ("val_day_3_cum", "cost", "val_day_1_cum", "val_day_0", "platform")
     assert feature_manager.fetch_columns(INPUTS_SPEC) == list(plan.fetch_columns)
 
 
@@ -475,16 +475,16 @@ def test_inputs_come_from_the_fitted_plan():
     with pytest.raises(NotFittedError):
         pipe.inputs("up")
     feat = pipe.fit_transform(_frame())
-    assert list(feat[pipe.inputs("up")].columns) == ["cost", "rev_day_1_cum", "rev_day_3_cum", "roas"]
+    assert list(feat[pipe.inputs("up")].columns) == ["cost", "val_day_1_cum", "val_day_3_cum", "forecast"]
     with pytest.raises(KeyError, match="declared"):
         pipe.inputs("nope")
 
 
 @pytest.mark.parametrize("inputs, error", [
-    ({"a": ["roas_raw"]}, "keep: false"),
+    ({"a": ["forecast_raw"]}, "keep: false"),
     ({"a": ["+b"], "b": ["+a"]}, "includes itself"),
     ({"a": ["+missing"]}, "no set 'missing'"),
-    ({"a": [{"each": "rev_day_{d}_cum"}]}, "needs `each` and an axis"),
+    ({"a": [{"each": "val_day_{d}_cum"}]}, "needs `each` and an axis"),
     ({"a": [{"each": "rev_{x}_day_{d}", "d": [1]}]}, "no axis fills"),
     ({"outputs": ["cost"]}, "reserved"),
 ])
@@ -495,16 +495,16 @@ def test_bad_inputs_fail_at_compile(inputs, error):
 
 def test_plus_outputs_is_every_kept_feature_in_declaration_order():
     spec = {**INPUTS_SPEC, "inputs": {"default": ["+outputs", "cost"]}}
-    assert compile_spec(spec).inputs == {"default": ("roas", "cost")}
+    assert compile_spec(spec).inputs == {"default": ("forecast", "cost")}
 
 
 GROUP_SPEC = {
     "vars": {"days": [1, 3]},
     "define": [
-        {"name": "{p}_ratio_{d}", "expr": "rev_day_{d}_cum / cost", "group": "ratios_{p}",
+        {"name": "{p}_ratio_{d}", "expr": "val_day_{d}_cum / cost", "group": "ratios_{p}",
          "for_each": {"p": ["rev"], "d": "days"}},
-        {"name": "roas", "expr": "rev_day_3_cum / cost", "group": "ratios_rev"},
-        {"name": "hidden", "expr": "rev_day_1_cum * 2", "group": "ratios_rev", "keep": False},
+        {"name": "forecast", "expr": "val_day_3_cum / cost", "group": "ratios_rev"},
+        {"name": "hidden", "expr": "val_day_1_cum * 2", "group": "ratios_rev", "keep": False},
         {"name": "lone", "expr": "cost * 2"},
     ],
     "inputs": {"default": ["+group:ratios_rev", "cost"]},
@@ -513,8 +513,8 @@ GROUP_SPEC = {
 
 def test_plus_group_is_its_kept_features_in_declaration_order():
     plan = compile_spec(GROUP_SPEC)
-    assert plan.groups == {"ratios_rev": ("rev_ratio_1", "rev_ratio_3", "roas")}
-    assert plan.inputs["default"] == ("rev_ratio_1", "rev_ratio_3", "roas", "cost")
+    assert plan.groups == {"ratios_rev": ("rev_ratio_1", "rev_ratio_3", "forecast")}
+    assert plan.inputs["default"] == ("rev_ratio_1", "rev_ratio_3", "forecast", "cost")
 
 
 def test_an_unknown_group_fails_at_compile():
@@ -524,15 +524,15 @@ def test_an_unknown_group_fails_at_compile():
 
 def test_an_inputs_set_is_an_ordered_union():
     """Overlapping groups and sets compose: a repeated column keeps its first position."""
-    spec = {**GROUP_SPEC, "inputs": {"common": ["roas", "cost"],
+    spec = {**GROUP_SPEC, "inputs": {"common": ["forecast", "cost"],
                                      "low": ["+common", "+group:ratios_rev", "cost"]}}
-    assert compile_spec(spec).inputs["low"] == ("roas", "cost", "rev_ratio_1", "rev_ratio_3")
+    assert compile_spec(spec).inputs["low"] == ("forecast", "cost", "rev_ratio_1", "rev_ratio_3")
 
 
 SUBMODEL_SPEC = {
-    "define": [{"name": "roas", "expr": "rev_day_3_cum / cost"},
+    "define": [{"name": "forecast", "expr": "val_day_3_cum / cost"},
                {"name": "scratch", "expr": "cost * 2", "keep": False}],
-    "inputs": {"common": ["roas"]},
+    "inputs": {"common": ["forecast"]},
     "submodels": {
         "big": {"when": "cost >= 50", "inputs": ["+common", "cost"], "params": {"max_depth": 6}},
         "small": {"when": "(cost > 0) & (cost < 50)", "inputs": ["+common"]},
@@ -544,7 +544,7 @@ def test_submodels_route_rows_and_carry_their_inputs_and_params():
     pipe = FeaturePipeline(SUBMODEL_SPEC)
     feat = pipe.fit_transform(_frame())
     assert pipe.submodels() == ["big", "small"]
-    assert pipe.inputs("big") == ["roas", "cost"] and pipe.inputs("small") == ["roas"]
+    assert pipe.inputs("big") == ["forecast", "cost"] and pipe.inputs("small") == ["forecast"]
     assert pipe.params("big") == {"max_depth": 6} and pipe.params("small") == {}
     owner = pipe.route(feat)
     assert (owner[feat["cost"] >= 50] == "big").all()
@@ -557,22 +557,22 @@ def test_a_row_no_rule_matches_is_unrouted_and_one_two_rules_match_raises():
     feat.loc[feat.index[0], "cost"] = np.nan
     assert pipe.route(feat).iloc[0] is None
     overlapping = {**SUBMODEL_SPEC, "submodels": {
-        "a": {"when": "cost >= 0", "inputs": ["roas"]}, "b": {"when": "cost >= 50", "inputs": ["roas"]}}}
+        "a": {"when": "cost >= 0", "inputs": ["forecast"]}, "b": {"when": "cost >= 50", "inputs": ["forecast"]}}}
     pipe = FeaturePipeline(overlapping)
     with pytest.raises(ValueError, match="match submodel 'b' and an earlier one"):
         pipe.route(pipe.fit_transform(_frame()))
 
 
 def test_a_rule_reads_raw_columns_into_the_fetch():
-    spec = {**SUBMODEL_SPEC, "submodels": {"a": {"when": "installs > 0", "inputs": ["roas"]}}}
+    spec = {**SUBMODEL_SPEC, "submodels": {"a": {"when": "signups > 0", "inputs": ["forecast"]}}}
     plan = compile_spec(spec)
-    assert "installs" in plan.fetch_columns and "installs" in plan.numeric_columns
+    assert "signups" in plan.fetch_columns and "signups" in plan.numeric_columns
 
 
 @pytest.mark.parametrize("submodels, inputs, error", [
-    ({"common": {"when": "cost > 0", "inputs": ["roas"]}}, {"common": ["roas"]}, "share a name"),
-    ({"a": {"when": "scratch > 0", "inputs": ["roas"]}}, {}, "keep: false"),
-    ({"a": {"when": "1 > 0", "inputs": ["roas"]}}, {}, "one value per row"),
+    ({"common": {"when": "cost > 0", "inputs": ["forecast"]}}, {"common": ["forecast"]}, "share a name"),
+    ({"a": {"when": "scratch > 0", "inputs": ["forecast"]}}, {}, "keep: false"),
+    ({"a": {"when": "1 > 0", "inputs": ["forecast"]}}, {}, "one value per row"),
 ])
 def test_bad_submodels_fail_at_compile(submodels, inputs, error):
     with pytest.raises(ExprError, match=error):
