@@ -1,0 +1,7837 @@
+{
+"as_of": "2026-10-29",
+"skus": {
+"152E-C115-5142": [
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Services CPU (Instance-based billing) in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 18000,
+"units": "0"
+}
+}
+],
+"usageUnit": "s"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "011E-3072-CBDB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Services Memory (Request-based billing)",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.s"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"asia-northeast1",
+"asia-northeast2",
+"europe-north1",
+"europe-north2",
+"europe-southwest1",
+"europe-west1",
+"europe-west4",
+"europe-west8",
+"europe-west9",
+"me-west1",
+"northamerica-south1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-east5",
+"us-east7",
+"us-south1",
+"us-west1",
+"us-west8",
+"asia-south1",
+"asia-southeast3",
+"africa-south1",
+"asia-southeast4"
+],
+"skuId": "02A2-9231-36A6"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Jobs CPU in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 18000,
+"units": "0"
+}
+}
+],
+"usageUnit": "s"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "257B-2A84-3396"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Services CPU (Request-based billing)",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 24000,
+"units": "0"
+}
+}
+],
+"usageUnit": "s"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"asia-northeast1",
+"asia-northeast2",
+"europe-north1",
+"europe-north2",
+"europe-southwest1",
+"europe-west1",
+"europe-west4",
+"europe-west8",
+"europe-west9",
+"me-west1",
+"northamerica-south1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-east5",
+"us-east7",
+"us-south1",
+"us-west1",
+"us-west8",
+"asia-south1",
+"asia-southeast3",
+"africa-south1",
+"asia-southeast4"
+],
+"skuId": "4856-B847-F1EB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Instances Memory in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 1930,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.s"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5DC7-6178-B93F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Services Min Instance Memory (Request-based billing)",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.s"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"asia-northeast1",
+"asia-northeast2",
+"europe-north1",
+"europe-north2",
+"europe-southwest1",
+"europe-west1",
+"europe-west4",
+"europe-west8",
+"europe-west9",
+"me-west1",
+"northamerica-south1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-east5",
+"us-east7",
+"us-south1",
+"us-west1",
+"us-west8",
+"asia-south1",
+"asia-southeast3",
+"africa-south1",
+"asia-southeast4"
+],
+"skuId": "740D-08F2-7A11"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Services Min Instance CPU (Request-based billing)",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2500,
+"units": "0"
+}
+}
+],
+"usageUnit": "s"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"asia-northeast1",
+"asia-northeast2",
+"europe-north1",
+"europe-north2",
+"europe-southwest1",
+"europe-west1",
+"europe-west4",
+"europe-west8",
+"europe-west9",
+"me-west1",
+"northamerica-south1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-east5",
+"us-east7",
+"us-south1",
+"us-west1",
+"us-west8",
+"asia-south1",
+"asia-southeast3",
+"africa-south1",
+"asia-southeast4"
+],
+"skuId": "7EBB-8579-2C98"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Jobs Memory in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.s"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8A79-9F45-5F32"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Services Memory (Instance-based billing) in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.s"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F6D2-B591-E54F"
+}
+],
+"24E6-581D-38E5": [
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Analysis",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 0,
+"units": "0"
+}
+},
+{
+"startUsageAmount": 1,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 250000000,
+"units": "6"
+}
+}
+],
+"usageUnit": "TiBy"
+}
+}
+],
+"serviceRegions": [
+"us",
+"europe"
+],
+"skuId": "1DF5-1F98-1DD1"
+}
+],
+"C7E2-9256-1C43": [
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia Tesla P4 GPU running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 690000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "0000-9B70-F099"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Tpu-v2 Accelerator USA",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 646875000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "045F-D5A4-3CD1"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - P100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 292000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "04FB-0EDB-60F6"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on A3 Ultra Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 201000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "060B-63BC-87D1"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction E2 Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 25082600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "079B-8DAC-EB14"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Hyperdisk Balanced Persistent Disk in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 16000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "0931-5C94-AADD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on N2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 635600,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "0980-A1BA-1E75"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - P4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 120000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "0B0F-0324-B075"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C4A Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4629000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "0D07-E8A2-FA50"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A3Plus Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 30962136,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "108D-984B-3A57"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N4 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4071000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "109D-2668-3E80"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - H100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 959310113,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "10C7-A9CF-8E85"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Tpu-v5e Accelerator in east US",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 380000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "112B-51F1-4257"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on E2 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3271600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "126F-28F1-FB2A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A2 Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 36352650,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "15A7-BDE1-23EB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on M1 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 765000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "15D1-F48D-73A9"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - N2 Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5084400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "16C7-DA0A-91EC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Regional SSD backed PD Capacity",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 391000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"europe-west1",
+"us-central1",
+"us-central2",
+"us-east1",
+"us-west1"
+],
+"skuId": "1708-ABEC-300A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on A3 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3824700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "1797-967A-274D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on N2 Custom Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 667330,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "17F5-7A6E-2E62"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on N4 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 35868500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "1B9B-FEE5-83E0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA Tesla P4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 90000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "1D35-96EC-8C98"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Custom Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 38150100,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-central2",
+"us-east1",
+"us-west1"
+],
+"skuId": "1E0D-05D5-9ABA"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on v6e (Ghostlite Pod) TPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 405000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2125-AFA8-7B48"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on tpu7x (Ghostfish Pod) TPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 800000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "212B-0EC2-974B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": " Vertex AI: Training/Pipelines Management fee on Tpu V6e in ${region_display_name}",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 405000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "21F1-5772-E10E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C4 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4528700,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "22EE-EACD-A511"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A3 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2553400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2424-9F04-82A8"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE usage - Extreme Persistent Disk in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 150000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "255F-D5B7-7005"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia Tesla A100 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 373994200,
+"units": "3"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "2688-9276-2874"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Memory-optimized Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5865000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "2708-373E-3636"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE management fee - G2 Instance Cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4997642,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "27FA-330F-6C1D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C2 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 682500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "28AB-949E-B4C4"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C2D Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 33997400,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "28DC-C35F-E60E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - E2 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 584706,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2981-5B54-1918"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N4 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4678500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2A1A-0000-7169"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N1 Predefined Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 36352650,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "2A57-4214-1832"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - V100 in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 976000000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2AB4-EA0F-130E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on N1 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 635500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2AFC-FA40-0543"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on G2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 439100,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2BF0-DBAA-E0D2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on N4 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4678500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2C41-C40E-6B3D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - A2 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 847400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2CBB-3E29-A3A1"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Tpu-v3 Accelerator USA",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 150000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2CBE-CDE6-DB3C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A2 Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4872500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "2DBC-2378-4503"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 635600,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2E52-4B36-4348"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A3 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 29322704,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2E83-99F1-391A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N4A Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 451500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "2F90-7A11-12E3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C4 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 39847500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3072-9B0E-AE05"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab \u0421PU for GCE usage - A3 instance cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5099600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "30F3-F7D8-9CB0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N2 Custom Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5112900,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-central2",
+"us-east1",
+"us-west1"
+],
+"skuId": "313C-AAD4-7F95"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - T4 in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 420000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3142-965F-148F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE usage - Hyperdisk Extreme Persistent Disk in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 150000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "319C-9F24-81AE"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C3 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 39080000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "31C6-8EE0-AA8F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction G2 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3370000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "345B-187D-70C2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C2 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 39077000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "351F-F813-CA76"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE usage - SSD Persistent Disk in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 204000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3718-B8CB-D8E7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia L4 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 644046276,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "37AD-572D-B2EC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C2D Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4552800,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3965-C1EF-2BCB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - A100(80 GB) in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 785616000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "39D8-C6D0-E557"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N2 Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 36352650,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "39DD-8527-2FE3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA Tesla P100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 219000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3A81-D54C-E786"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA H100 Mega 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 551641400,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3BE2-0A49-EA3A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - P4 in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 720000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3BF6-E447-E90C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - H100 Mega in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 68855142,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3C42-092B-F906"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - P100 in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 752000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3C63-076A-366E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C3 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5240000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3EF2-B2B0-EB84"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on NVIDIA H100 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 266033200,
+"units": "11"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "3F95-001E-B747"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A3 Mega Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2696200,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "42A0-7B1C-F30E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on E2 Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 25083328,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "43AB-6AAF-9567"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Hyperdisk Balanced Throughput in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 8000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "45CB-AE1B-2A5F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on M2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 678600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "45F9-092A-711A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - A3 instance cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 30597604,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "46DC-C085-2103"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N2 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4741700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "47B4-C1A5-E7F7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - A3 Mega Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 468895,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "48AC-9D36-2C0A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on C2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5097300,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "48EF-AD4F-C247"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction TPU-v5e (Viperlitepod) TPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 380000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4AD0-0C26-BA06"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on E2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3271740,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4AE4-5C9B-9B7E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on N2 Custom Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4978730,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4AFC-FC97-6E62"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA Tesla V100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 372000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4C6E-56C6-BE91"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - G2 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 585489,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4C9E-6389-C22F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A3 Ultra Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 1541000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4C9E-B2B5-3370"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Hyperdisk Balanced Capacity in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 92000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4D11-73A4-7915"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A3Plus Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2696151,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4D56-EA50-558A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on NVIDIA Tesla P100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 219000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4D78-A377-222B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE usage - Balanced Persistent Disk in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 120000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "4E48-BBB7-C246"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C3 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 683500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "53CE-A2BC-C91E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia Tesla P100 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 679000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "53F6-D5A6-86C5"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - N1 Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5084400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5550-D388-5698"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - A3 Mega instance cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 32308316,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5621-CB23-863B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on A3 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 333100,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5692-009D-2057"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Balanced Persistent Disk in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 20000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "56FB-B3C2-5099"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - L4 in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 672048286,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "57F2-1C6F-3CE3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on NVIDIA H100 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 469482600,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5853-505F-A5C4"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on NVIDIA H200 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 396761000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "585C-4C91-F112"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on Nvidia Tesla A100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 440086200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "58C6-1621-466E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A3 Ultra Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 25886500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5943-413A-623A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on N4 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 531000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "5DFA-F3C9-CD18"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A3 Ultra Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3376500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "60B2-FCBC-E871"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Standard Persistent Disk in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 8000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "620D-8FF2-CBAD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on NVIDIA L4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 84006035,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "64E9-CBF1-8858"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction tpu7x (Ghostlite Pod) TPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 800000000,
+"units": "13"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "655A-3A30-7E23"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction NVIDIA H200 141GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 708501000,
+"units": "10"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6650-8A6E-B12C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - A3 Mega Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2813375,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "67AC-2239-E619"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction G2 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 28740000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "67B5-996F-5B0E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C4D Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 563002,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6B75-79E0-85E0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on E2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 438500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6BEC-A9D0-EBD0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - A100(40 GB) in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 586781600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6C1C-4F70-BBD2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on E2 Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3362059,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "6C2C-EA74-7AF9"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N2 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4872500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6DA4-6A78-8F5C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A3Plus Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4038539,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6DE3-4DE1-05B7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on A3 Mega Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 351700,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6E4E-212B-657C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A3 Mega Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 30962100,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6FDD-B551-A170"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on NVIDIA GB200 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 437500000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "6FE9-9088-DB83"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A3 Ultra Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 25886500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "719F-09D3-825E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N1 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4695700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "7267-F2A5-DA1E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia A100 80gb GPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 517290000,
+"units": "4"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "72B6-EE31-7A41"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N4 Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4071000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "72F3-6DC7-EE7F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - N2 Instance Cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 37933200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "7362-581B-29B4"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on G2 Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3366566,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "74D0-9075-AB7B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on G4 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 880500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "7514-F7F8-962E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction G4 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 56249950,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "7771-3534-EC63"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on C2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 683300,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "796C-8D68-0C06"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on NVIDIA Tesla K80 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 67500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "797E-C463-B70D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Storage PD Snapshot in US",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 29900000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "7A1C-488A-A450"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - G2 Instance Cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 29985854,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "7BF9-755A-A1D3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on Tpu-v3 Accelerator in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 150000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "7F15-79BD-5AE6"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - A100(40 GB) in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 520689600,
+"units": "3"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "808F-2B06-47AA"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N2 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 36352700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "80B9-9F43-8D9D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia Tesla T4 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 402500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "82B6-476F-B143"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4741600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "82C3-4B79-2C13"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Compute optimized Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 39079300,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "8414-D39A-A0F2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N1 Predefined Instance Core running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 36000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "84D9-B3FA-0886"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Hyperdisk Balanced IOPS in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 1000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8594-1AF9-90B2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia Tesla A100 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 374100000,
+"units": "3"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "86DD-470A-DBD2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on A2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 635600,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8714-C1C7-9ABD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on Nvidia Tesla A100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 440086200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "874E-FF0B-7862"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - A2 Instance Cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 37933200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "877B-CCC4-F706"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA Tesla T4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 58434800,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "88DD-2F56-1959"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A3Plus Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 351671,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8AED-EC2C-0ABC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A3 Ultra Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 201000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8BA7-7917-32AD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia Tesla K80 GPU running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 517000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"northamerica-northeast1",
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "8C71-88C8-7F92"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - H100 Mega in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 413130854,
+"units": "12"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8D6C-24B4-6BE1"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - H100 in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 755860683,
+"units": "11"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "8D88-F922-2A5F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia Tesla K80 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 517500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "9005-5962-1FA7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C3D Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4552900,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "911F-30F1-849D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - A2 Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5084400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "91FB-07A4-E36B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - E2 Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3508236,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9215-A98F-C4CD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE usage - A100(80 GB) in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 713696000,
+"units": "4"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "935F-803F-7388"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on G2 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 439600,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "93DC-E4DC-88BA"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N4A Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3461500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9407-5EFF-B83C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia Tesla V100 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 852000000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "9453-4592-7D26"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C4A Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 526500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9463-D428-E671"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on Tpu 7x in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 800000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9480-558B-C61F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE management fee - A2 Instance Cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 6322000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "94A0-CFF5-5F87"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Hyperdisk Extreme Persistent Disk in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 25000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "94FD-D73A-40D2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - N1 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 847400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9742-0429-CDEE"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on G2 Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 28736444,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "976E-BCA3-15EF"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C4A Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4036500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "97DF-20F4-1205"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA GB200 with lssd in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 437500000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9903-CA0C-56C8"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Memory-optimized Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 40020000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "9912-1AC4-76AB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A3 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3824700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9AC1-7D9B-C47E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Nvidia Tesla P4 GPU running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 690000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "9CD7-3139-5587"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Compute optimized Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5238250,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "9CF0-8D5A-62E3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA B200 with lssd in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 416500000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9DD1-7FF9-74AE"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - A3 Ultra instance cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4502000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9DDB-87CB-428A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on Tpu-v2 Pod Accelerator in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 112500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9E57-F558-1CC0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - N1 Instance Cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 37933200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "9F09-3408-968A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A3 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 29322700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A002-4323-D900"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on SSD backed PD Capacity",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 195500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"europe-west1",
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "A005-98FE-36CC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N4A Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 30429000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A030-9072-48C8"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C4 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5197500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A1C8-52A4-D377"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N2D Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4238900,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A1E7-D35D-B9CC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Tpu-v2 Pod Accelerator USA",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 862500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A24C-C7AA-28A9"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Regional Storage PD Capacity",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 92000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"europe-west1",
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "A46E-EC0E-EFC2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on N1 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4741600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A4CD-7C62-A250"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia L4 GPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 644050000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A549-A5A8-D627"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C3D Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4434500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A72E-0805-1402"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA RTX 6000 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 164347830,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "A7AC-BB5C-2F63"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Memory Optimized Upgrade Premium for Memory-optimized Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 762450,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "A898-4299-6DF5"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N1 Predefined Instance Ram running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "A909-7508-BAB3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C2 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5097000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AB1B-D6AF-75C0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE management fee - N4 Instance Cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 6238000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AC6A-5855-01EF"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on M1 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5220000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "ACBB-641D-3D37"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on Tpu-v2 Accelerator in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 84375000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "ACD0-28C6-8611"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on NVIDIA H100 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 469482600,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AD9E-D341-84B9"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia H100 80gb GPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 266033200,
+"units": "11"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AE9C-DB60-DF46"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C3D Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 593900,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AEF7-1249-A08C"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - L4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 112008047,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AFB5-5DA7-16AC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - A3 Ultra Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 268000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "AFDF-EF51-3C28"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on G2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3748231,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B03F-5103-EE74"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A3 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2553400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B045-9255-8314"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on N2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4741600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B142-7F52-A847"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE usage - E2 Instance Cores in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 26173908,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B1A5-41E9-22F7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - A3 Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 2664408,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B213-1C64-F4B4"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": " Vertex Colab CPU for GCE management fee - E2 Instance Cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4362318,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B462-C45E-3F6A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C3D Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 33997500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B476-0E66-548F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C4D Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4905500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B5B4-B940-2E06"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - A3 instance cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5384719,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B621-4B20-D4C9"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C4 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 35489000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B659-5639-3FFF"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on NVIDIA A100 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 589212000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "B971-8661-1317"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia RTX 6000 GPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 260000030,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BCF2-2C57-C175"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE usage - G2 Instance Ram in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3512937,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BD12-D676-F79E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N4 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 531000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BD8E-E6E3-0332"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - SSD Persistent Disk in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 34000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BDE8-183A-DB11"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on G4 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 7336950,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BDED-C416-12B5"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia Tesla T4 GPU running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 402000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"northamerica-northeast1",
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "BE5E-535F-BBF0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C4 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 590700,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BEBE-3CBF-E768"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on Tpu-v5e Accelerator in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 180000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "BF5B-57B3-6091"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C4D Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 37609000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C0FC-3EEA-317B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on M2 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 99500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C21F-3B6F-182E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE management fee - N2 Instance Cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 6322200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C2C1-5A23-B865"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N1 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 652200,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C493-4F96-7252"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - A3 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 444068,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C585-5FCA-EA4B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N2 Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4872550,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "C779-546A-D701"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on NVIDIA H200 141GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 396761000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C87B-B58C-A950"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N2D Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4125300,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "C884-DABD-B391"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab CPU for GCE management fee - N1 Instance Cores in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 6322200,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "CA41-17B2-5FC2"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia Tesla V100 GPU running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 852000000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"northamerica-northeast1",
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "CA8F-F6DF-ED72"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N2 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 635500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "CBE1-791D-A5F3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE management fee - Extreme Persistent Disk in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 25000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "CC77-A918-BCC7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on Tpu-v3 Pod Accelerator in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 150000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "CE7A-0788-CD61"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction E2 Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3361400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "CF56-D761-2903"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N2D Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 31627300,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D003-58DC-24EB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on NVIDIA Tesla P4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 90000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D137-8F21-9A8A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on A3 Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 333100,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D30D-69C9-F057"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on A3 Ultra Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3376500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D325-2D95-BBCC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Custom Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5112900,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-central2",
+"us-east1",
+"us-west1"
+],
+"skuId": "D35B-099E-79AC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia H100 Mega 80gb GPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 895917100,
+"units": "11"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D460-501C-EF3A"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - T4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 70000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D49C-192A-28C6"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Memory Optimized Upgrade Premium for Memory-optimized Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5202600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "D4D7-65D3-4788"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on A3 Mega Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4038500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D57F-E06F-9267"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on G2 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3748700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D69A-2474-2E61"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on NVIDIA H100 MEGA 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 895917100,
+"units": "11"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D6C6-B400-0BD0"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia GB200 GPU with lssd running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 687500000,
+"units": "18"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D79F-8F24-C05D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on E2 Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 438400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D96F-7121-5A70"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C2 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5232500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "D9BD-6580-FD7F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N2 Custom Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 38150100,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-central2",
+"us-east1",
+"us-west1"
+],
+"skuId": "DB9A-B1CB-5DAC"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction C4D Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4316350,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "DBA8-E639-FA65"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on NVIDIA L4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 84006500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "DE07-289A-62CB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia B200 GPU with lssd running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 526500000,
+"units": "18"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "DE1F-4698-B9D5"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on NVIDIA B200 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 416500000,
+"units": "2"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "DE51-7280-52B7"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on N1 Predefined Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4872550,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "DE93-D712-2AE4"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on NVIDIA H200 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 708501000,
+"units": "10"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E01D-311F-24DA"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab Storage for GCE usage - Standard Persistent Disk in us-central1",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 48000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E047-AE64-1259"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A3 Ultra Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 1541000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E07E-3D7F-9DAE"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - V100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 496000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E08F-A421-D029"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C2D Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4434400,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E2B2-30A7-B977"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Storage PD Capacity",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 46000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.mo"
+}
+}
+],
+"serviceRegions": [
+"asia-east1",
+"europe-west1",
+"us-central1",
+"us-central2",
+"us-east1",
+"us-west1"
+],
+"skuId": "E320-80A9-21BD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on NVIDIA B200 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 526500000,
+"units": "18"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E6D8-1AE4-AAFD"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on A2 Instance Ram running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4872550,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "E7EA-78F1-B4BA"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab GPU for GCE management fee - H200(141 GB) in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 862348000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "E8E3-CA90-F93E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Tpu-v3 Pod Accelerator USA",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 150000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "EC18-19A5-CC1D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on NVIDIA Tesla V100 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 372000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "EDA5-48C3-7C70"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Nvidia Tesla P100 GPU running in Americas for AI Platform",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 679000000,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"northamerica-northeast1",
+"southamerica-east1",
+"us-central1",
+"us-east1",
+"us-east4",
+"us-west1",
+"us-west2",
+"us-west3",
+"us-west4"
+],
+"skuId": "EE90-FFE3-721F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C3 Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 5097400,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "EEE7-6C37-4A16"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction N4 Predefined Instance Core running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 35868500,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "EFDE-A77E-1878"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N2D Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 552900,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F21E-2F6F-7BA9"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on NVIDIA H100 MEGA 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 551641400,
+"units": "1"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F33D-602D-560D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction v6e (Ghostlite Pod) TPU running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 105000000,
+"units": "3"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F437-2B1E-C1BB"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction management fee on A2 Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 4741600,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F559-0525-B823"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on N4A Predefined Instance Core in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 3969000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F5A0-9F68-6F39"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction G4 Predefined Instance Ram running in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 6750500,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F5E7-F3D7-5AC3"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on C2D Predefined Instance RAM in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 593800,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F622-ADEA-069B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on Tpu-7x Accelerator in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 800000000,
+"units": "13"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F799-C34F-272D"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction A2 Instance Core running in Americas",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 36352700,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1",
+"us-east1",
+"us-west1"
+],
+"skuId": "F86F-168E-2FB6"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - N4 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 708000,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "F9E5-7DAC-392B"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Online/Batch Prediction Management fee on TPU-v5e (Viperlitepod) TPU in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 180000000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "FB19-5232-808E"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines management fee on NVIDIA A100 80GB in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 589212000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "FD43-8FF4-84B4"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex Colab RAM for GCE management fee - N2 Instance Ram in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 847400,
+"units": "0"
+}
+}
+],
+"usageUnit": "GiBy.h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "FDD6-CBFC-163F"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines Management fee on NVIDIA Tesla T4 in Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 52500000,
+"units": "0"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "FDED-B858-43DF"
+},
+{
+"category": {
+"usageType": "OnDemand"
+},
+"description": "Vertex AI: Training/Pipelines on NVIDIA GB200 In Iowa",
+"pricingInfo": [
+{
+"pricingExpression": {
+"tieredRates": [
+{
+"startUsageAmount": 0,
+"unitPrice": {
+"currencyCode": "USD",
+"nanos": 687500000,
+"units": "18"
+}
+}
+],
+"usageUnit": "h"
+}
+}
+],
+"serviceRegions": [
+"us-central1"
+],
+"skuId": "FDF8-EDD7-A6BD"
+}
+]
+},
+"source": "Cloud Billing Catalog API, list prices in USD"
+}

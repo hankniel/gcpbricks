@@ -1,0 +1,8 @@
+/* The Databricks workspace sets its text in the system UI stack at 13px; DM Sans is Databricks One's. */
+:root {
+  --db-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+/* ApplyGlobalStyles sets colors, not the font: point body at dbui's font token. */
+body { font-family: var(--db-font-family); font-size: 13px; line-height: 18px; margin: 0; }
+html, body, #root { height: 100%; }

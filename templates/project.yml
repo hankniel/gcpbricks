@@ -1,0 +1,96 @@
+# GitLab CI/CD component: the CI a project on gcpbricks includes, at the platform
+# tag its mlops.yaml pins.
+#
+#   include:
+#     - component: $CI_SERVER_FQDN/YOUR_GROUP/gcpbricks/project@main
+#
+# with mlops.yaml's `mlops_version: latest`: every pipeline installs the newest release, and a
+# platform release redeploys the bundle itself (`mlops bundle redeploy`). To pin instead, include
+# project@<tag> with `inputs: {platform_version: "<version>"}` and set mlops_version to match.
+#
+# Jobs it adds (a project can extend or override any of them by name):
+#   mlops-validate        every MR and main push: `mlops bundle validate` per target
+#   mlops-render          every MR and main push: .mlops/<target>.json per target, what
+#                         a deploy would apply, kept as an artifact to review
+#   mlops-deploy-prod     main push: `mlops bundle deploy -t prod`: upload the bundle's
+#                         files, publish every vertex_pipeline_task, apply the jobs'
+#                         infrastructure with terraform (state in the bundle's GCS prefix),
+#                         and experiments, registered models and serving endpoints
+#
+# gcpbricks installs from this project's GitLab PyPI index with the job token, so
+# gcpbricks's job token allowlist must include the project. The deploy job expects
+# GCP_SERVICE_ACCOUNT_KEY (base64 key of the deploying account; README "Using it in a
+# project" lists its roles). The project keeps no terraform of its own.
+spec:
+  inputs:
+    platform_version:
+      description: gcpbricks version to install, or "latest"; the same as mlops.yaml's `bundle.mlops_version`.
+      default: latest
+    targets:
+      description: Space-separated targets to render.
+      default: "dev prod"
+    lint_stage:
+      default: lint
+    deploy_stage:
+      default: deploy
+    pip_index:
+      description: PyPI index serving gcpbricks (this project's registry; the group-level index refuses members of the project only).
+      default: "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/api/v4/projects/PROJECT_ID/packages/pypi/simple"
+    image:
+      description: Image passed to `mlops bundle deploy --image`, for vertex_pipeline_task builds that bake one in.
+      default: ""
+    terraform_version:
+      description: Terraform the deploy job applies the bundle's infrastructure with.
+      default: "1.16.3"
+---
+.mlops-base:
+  tags: [docker]
+  image: python:3.11-slim
+  variables:
+    MLOPS_VERSION: $[[ inputs.platform_version ]]
+  before_script:
+    - SPEC=gcpbricks; [ "$MLOPS_VERSION" = latest ] || SPEC="gcpbricks==$MLOPS_VERSION"
+    - pip install --quiet --index-url "$[[ inputs.pip_index ]]" --extra-index-url https://pypi.org/simple "$SPEC"
+
+mlops-validate:
+  extends: .mlops-base
+  stage: $[[ inputs.lint_stage ]]
+  interruptible: true
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - for t in $[[ inputs.targets ]]; do mlops bundle validate -t "$t"; done
+
+mlops-render:
+  extends: .mlops-base
+  stage: $[[ inputs.lint_stage ]]
+  interruptible: true
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - mkdir -p .mlops
+    - for t in $[[ inputs.targets ]]; do mlops bundle render -t "$t" > ".mlops/$t.json"; done
+  artifacts:
+    paths: [.mlops/]
+    expire_in: 7 days
+
+mlops-deploy-prod:
+  extends: .mlops-base
+  stage: $[[ inputs.deploy_stage ]]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /tmp/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json
+    # The bundle's files are the ones git tracks or doesn't ignore; terraform applies its jobs.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git curl unzip ca-certificates > /dev/null
+    - curl -sSfo /tmp/tf.zip "https://releases.hashicorp.com/terraform/$[[ inputs.terraform_version ]]/terraform_$[[ inputs.terraform_version ]]_linux_amd64.zip"
+    - unzip -qo /tmp/tf.zip -d /usr/local/bin terraform
+    # Experiments, registered models and serving endpoints apply through the Vertex SDK.
+    - SPEC="gcpbricks[ml]"; [ "$MLOPS_VERSION" = latest ] || SPEC="gcpbricks[ml]==$MLOPS_VERSION"
+    - pip install --quiet --index-url "$[[ inputs.pip_index ]]" --extra-index-url https://pypi.org/simple "$SPEC"
+    - mlops bundle deploy -t prod --image "$[[ inputs.image ]]"

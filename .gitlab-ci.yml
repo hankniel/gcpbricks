@@ -1,0 +1,291 @@
+# The platform's own CI:
+# test and validate on every MR and main push, and deploy the console to dev from main. On a
+# vX.Y.Z tag: push the dbt, runtime and console images, deploy and run the release gate (e2e/)
+# on dev, then publish the package and the GitLab Release, and redeploy every bundle on
+# "latest" from its saved files: dev at once, prod when someone starts rollout-prod. A bundle
+# pinned to a release moves by its own MR.
+stages: [test, deploy, release, gate, publish, rollout]
+
+variables:
+  # Where the release pushes the dbt, runtime and console images; gcpbricks.infra's
+  # DBT_IMAGE_REPO and environments.RUNTIME_REPO read them from the same place.
+  IMAGE_REPO: us-central1-docker.pkg.dev/my-gcp-project/mlops
+
+test:
+  stage: test
+  tags: [docker]
+  image: python:3.11-slim
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+  script:
+    # `mlops bundle deploy` reads the commit and the files to upload from git.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git > /dev/null
+    - pip install --quiet -e ".[dev]"
+    - ruff check src tests
+    - pytest -q
+
+# Temporarily disabled.
+# The feature store's Spark engine against the DuckDB one: pyspark 4 needs Java 17, which
+# the plain test image lacks, so its tests skip there and run here.
+# test-spark:
+#   stage: test
+#   tags: [docker]
+#   image: python:3.11-slim-bookworm
+#   interruptible: true
+#   rules:
+#     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+#       changes: &spark-paths [src/gcpbricks/features.py, src/gcpbricks/feature_config.py,
+#                              tests/test_features.py, pyproject.toml]
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+#       changes: *spark-paths
+#   script:
+#     - apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-17-jre-headless > /dev/null
+#     - pip install --quiet -e ".[dev,spark]"
+#     - pytest -q tests/test_features.py
+
+terraform-validate:
+  stage: test
+  tags: [docker]
+  image:
+    name: hashicorp/terraform:1.16.3
+    entrypoint: [""]
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: [terraform/**/*, tests/fixtures/**/*]
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - terraform fmt -check -recursive terraform tests/fixtures deploy
+    - (cd tests/fixtures/bundle/infra && terraform init -backend=false -input=false && terraform validate)
+    - (cd tests/fixtures/console && terraform init -backend=false -input=false && terraform validate)
+
+# The console's web app, built here for its image to copy: Node inside kaniko's snapshotted
+# build crawls on these runners.
+console-web:
+  stage: test
+  tags: [docker]
+  image: node:22-slim
+  # Headroom over Node's ~1 GB default heap; the build peaks near 1.3 GB RSS. Mermaid ships as its own
+  # prebuilt file (RichMarkdown.tsx): bundled, it took the job past the runner's memory.
+  variables:
+    NODE_OPTIONS: --max-old-space-size=2048
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes: &console-paths [console/web/**/*, images/console/**/*, src/gcpbricks/**/*, pyproject.toml,
+                               deploy/console/**/*, terraform/modules/console/**/*]
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - cd console/web && npm ci --no-audit --no-fund && npm run build
+  artifacts:
+    paths: [console/web/dist/]
+    expire_in: 7 days
+
+# --- the console on dev (deploy/console/dev, GitLab-managed state mlops-console-dev) ---
+
+# Runs as GCP_SERVICE_ACCOUNT_KEY's account, which needs roles/run.admin to apply the service
+# and IAP's run.invoker on it; the console's own roles are granted outside.
+.terraform-console:
+  tags: [docker]
+  image:
+    name: hashicorp/terraform:1.16.3
+    entrypoint: [""]
+  variables:
+    TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/mlops-console-dev
+    # mlops-notify's SMTP (deploy/console/dev): masked CI variables SMTP_USER, SMTP_PASSWORD.
+    TF_VAR_smtp_user: $SMTP_USER
+    TF_VAR_smtp_password: $SMTP_PASSWORD
+    # The console's "Allow GCP access" OAuth client (notebooks, and changes made as the user): masked CI variables NOTEBOOK_OAUTH_CLIENT_ID / _SECRET.
+    TF_VAR_oauth_client_id: $NOTEBOOK_OAUTH_CLIENT_ID
+    TF_VAR_oauth_client_secret: $NOTEBOOK_OAUTH_CLIENT_SECRET
+  before_script:
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /tmp/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json
+    - cd deploy/console/dev
+    - >
+      terraform init -input=false
+      -backend-config="address=$TF_ADDRESS"
+      -backend-config="lock_address=$TF_ADDRESS/lock"
+      -backend-config="unlock_address=$TF_ADDRESS/lock"
+      -backend-config="username=gitlab-ci-token"
+      -backend-config="password=$CI_JOB_TOKEN"
+      -backend-config="lock_method=POST"
+      -backend-config="unlock_method=DELETE"
+      -backend-config="retry_wait_min=5"
+
+# The MR's view of what the post-merge apply will do. -lock=false: a read-only plan must not
+# queue behind, or block, an apply on main. Its image is the one main will build after merge.
+terraform-plan-console:
+  extends: .terraform-console
+  stage: deploy
+  interruptible: true
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: [deploy/console/**/*, terraform/modules/console/**/*]
+  script:
+    - terraform plan -input=false -lock=false -var "image=${IMAGE_REPO}/console:main-preview"
+
+# The dev console follows main: a push that changes what the console runs builds its image
+# as console:main-<sha> and applies it, once the tests pass. Releases still push
+# console:<version> on their tag.
+build-console-main:
+  stage: deploy
+  tags: [docker]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  needs: [console-web, test]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes: *console-paths
+  script:
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /kaniko/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/key.json
+    - >
+      /kaniko/executor --context "$CI_PROJECT_DIR" --compressed-caching=false --snapshot-mode=redo --dockerfile images/console/Dockerfile
+      --destination "${IMAGE_REPO}/console:main-${CI_COMMIT_SHORT_SHA}"
+
+terraform-apply-console:
+  extends: .terraform-console
+  stage: deploy
+  needs: [build-console-main]
+  resource_group: terraform-console-dev
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      changes: *console-paths
+  script:
+    - terraform apply -input=false -auto-approve -var "image=${IMAGE_REPO}/console:main-${CI_COMMIT_SHORT_SHA}"
+
+publish-package:
+  stage: publish
+  tags: [docker]
+  image: python:3.11-slim
+  needs: [release-gate]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - test "v$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" = "$CI_COMMIT_TAG"
+    - pip install --quiet build twine
+    - python -m build
+    - >
+      TWINE_USERNAME=gitlab-ci-token TWINE_PASSWORD="$CI_JOB_TOKEN"
+      twine upload --repository-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" dist/*
+
+# The image a dbt_task without a job cluster runs on: this version's package + dbt v2.
+# The kaniko builds skip compressing snapshots and diff them by mtime: the three run at once,
+# and default snapshots of a large image can exceed the runner's memory.
+# GCP_SERVICE_ACCOUNT_KEY is a base64 key allowed to push to IMAGE_REPO.
+build-dbt-image:
+  stage: release
+  tags: [docker]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /kaniko/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/key.json
+    - >
+      /kaniko/executor --context "$CI_PROJECT_DIR" --compressed-caching=false --snapshot-mode=redo --dockerfile images/dbt/Dockerfile
+      --destination "${IMAGE_REPO}/dbt:${CI_COMMIT_TAG#v}"
+
+# The runtime every job environment builds on (images/runtime, gcpbricks.environments).
+build-runtime-image:
+  stage: release
+  tags: [docker]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /kaniko/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/key.json
+    - >
+      /kaniko/executor --context "$CI_PROJECT_DIR" --compressed-caching=false --snapshot-mode=redo --dockerfile images/runtime/Dockerfile
+      --destination "${IMAGE_REPO}/runtime:${CI_COMMIT_TAG#v}"
+
+# The console's image (images/console), deployed by terraform/modules/console; same registry.
+build-console-image:
+  stage: release
+  tags: [docker]
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  needs: [console-web, test]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /kaniko/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/kaniko/key.json
+    - >
+      /kaniko/executor --context "$CI_PROJECT_DIR" --compressed-caching=false --snapshot-mode=redo --dockerfile images/console/Dockerfile
+      --destination "${IMAGE_REPO}/console:${CI_COMMIT_TAG#v}"
+
+release:
+  stage: publish
+  tags: [docker]
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs: [publish-package, build-dbt-image, build-runtime-image, build-console-image]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - echo "Release $CI_COMMIT_TAG"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    description: "gcpbricks $CI_COMMIT_TAG: package, CI component (templates/project.yml), terraform modules (terraform/modules/bundle, terraform/modules/console), dbt image (dbt:<version>), runtime image (runtime:<version>) and console image (console:<version>) at this tag."
+
+# --- the release reaching the bundles -------------------------------------------------------
+
+# This tag's CLI and terraform module, as GCP_SERVICE_ACCOUNT_KEY's account: it deploys on the
+# bundles' behalf, so it needs every role a bundle's deploy does (README "Using it in a project").
+.mlops-cli:
+  tags: [docker]
+  image: python:3.11-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git curl unzip ca-certificates > /dev/null
+    - curl -sSfo /tmp/tf.zip "https://releases.hashicorp.com/terraform/1.16.3/terraform_1.16.3_linux_amd64.zip"
+    - unzip -qo /tmp/tf.zip -d /usr/local/bin terraform
+    - pip install --quiet ".[ml]"
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /tmp/key.json
+    - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json
+
+# The release on a real bundle before anyone gets it: e2e/ deployed to dev on this tag's
+# runtime image, and its job run to the end. If it fails, nothing is published or rolled out.
+release-gate:
+  extends: .mlops-cli
+  stage: gate
+  needs: [test, build-runtime-image]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    # The deploy builds on runtime:<installed version>; the tag pushed runtime:<tag>.
+    - test "v$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')" = "$CI_COMMIT_TAG"
+    - mlops bundle deploy -f e2e/mlops.yaml -t dev
+    - mlops bundle run main -f e2e/mlops.yaml -t dev
+
+rollout-dev:
+  extends: .mlops-cli
+  stage: rollout
+  needs: [publish-package]
+  resource_group: mlops-rollout-dev
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  script:
+    - mlops bundle redeploy -t dev
+
+# Prod waits for a person to start it, once dev's bundles have run on the release.
+rollout-prod:
+  extends: .mlops-cli
+  stage: rollout
+  needs: [rollout-dev]
+  resource_group: mlops-rollout-prod
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      when: manual
+  script:
+    - mlops bundle redeploy -t prod

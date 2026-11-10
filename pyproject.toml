@@ -1,0 +1,61 @@
+[project]
+name = "gcpbricks"
+version = "0.9.8"
+description = "Databricks Asset Bundles on GCP: declare jobs in mlops.yaml; deploy and run them on Cloud Workflows, Cloud Run, Vertex AI and Cloud Scheduler."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6",
+    "google-auth>=2.28",
+    "google-cloud-storage>=2.16",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4", "kfp>=2,<3", "ibis-framework>=12,<13", "duckdb>=1", "pandas>=2", "pyarrow>=14", "google-cloud-bigquery>=3", "google-cloud-bigquery-storage>=2", "fastapi>=0.115", "httpx>=0.27", "mcp>=1.12,<2",
+       "optuna>=5,<6", "scikit-learn>=1.2", "cloudpickle>=3", "websockets>=13"]
+# `mlops bundle deploy` of experiments, registered_models and model_serving_endpoints,
+# gcpbricks.mlflow, and batch_serve's staging and read_window. aiplatform 1.x: kfp 2's
+# pipeline components cap it below 2.
+ml = ["google-cloud-aiplatform>=1.160", "cloudpickle>=3", "pandas>=2", "pyarrow>=14", "db-dtypes>=1"]
+# gcpbricks.features, the feature store SDK.
+features = ["ibis-framework>=12,<13", "pandas>=2", "pyarrow>=14", "duckdb>=1",
+            "google-cloud-bigquery>=3", "google-cloud-bigquery-storage>=2"]
+# gcpbricks.feature_manager: features.yaml compiled into a fitted sklearn transformer.
+# scikit-learn >= 1.2: FeaturePipeline opts out of set_output (auto_wrap_output_keys).
+feature-manager = ["numpy", "pandas>=2", "scikit-learn>=1.2"]
+# gcpbricks.tuning: hyperparameter sweeps, each trial an MLflow child run.
+tuning = ["optuna>=5,<6"]
+# A vertex_pipeline_task's python_file, compiled by `mlops bundle deploy` (gcpbricks.pipelines).
+pipelines = ["kfp>=2,<3"]
+# The console (gcpbricks.console): its API server.
+# pyjwt: google-auth verifies IAP's assertion against IAP's JWK keys only through it.
+console = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pyjwt>=2", "websockets>=13"]
+# mlops-notebooks-mcp (gcpbricks.notebooks_mcp): Claude on the console's notebooks.
+notebooks-mcp = ["mcp>=1.12,<2", "websockets>=13"]
+# engine="spark": pyspark 4, which needs Java 17.
+spark = ["ibis-framework>=12,<13", "pyspark>=4,<5", "pandas>=2", "pyarrow>=14"]
+
+[project.scripts]
+mlops = "gcpbricks.cli:main"
+mlops-features = "gcpbricks.feature_config:main"
+mlops-task = "gcpbricks.task_runner:main"
+mlops-notebooks-mcp = "gcpbricks.notebooks_mcp:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gcpbricks"]
+
+# `mlops bundle deploy` applies the bundle module this version ships (gcpbricks.infra).
+[tool.hatch.build.targets.wheel.force-include]
+"terraform/modules/bundle" = "gcpbricks/terraform/bundle"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

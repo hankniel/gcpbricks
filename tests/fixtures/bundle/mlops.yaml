@@ -1,0 +1,32 @@
+# A bundle as a project writes it: Demo App's nightly job. Also what CI validates the
+# terraform module against (infra/, with .mlops/dev.json from `mlops bundle render -t dev`).
+bundle:
+  name: demo-app
+  mlops_version: "0.4.0"
+
+include:
+  - resources/*.yml
+
+gcp:
+  project: my-gcp-project
+  region: us-central1
+  bucket: my-ml-bucket
+
+run_as:
+  service_principal_name: bundle-runner@my-gcp-project.iam.gserviceaccount.com
+
+variables:
+  image:
+    description: The project's image, built and pushed by its CI.
+    default: us-central1-docker.pkg.dev/my-gcp-project/ml/model-serving:latest
+  schema:
+    default: demo_app_dev
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
+    variables:
+      schema: demo_app

@@ -1,0 +1,416 @@
+# Check one job's table_update or file_arrival trigger, as a Cloud Workflow. Deployed by
+# terraform/modules/bundle, one per bundle and target. Each triggered job's Cloud Scheduler
+# entry starts it every few minutes (bundle.TRIGGER_POLL_CRON); for file_arrival, an
+# Eventarc event also starts it at once through the job's wake Workflow (wake.yaml).
+#
+#   read the trigger's state and its generation -> observe: each table's lastModifiedTime,
+#   or the newest object under the prefix -> the first check only records what it saw ->
+#   otherwise a change is pending until the condition holds (ANY_UPDATED: one table,
+#   ALL_UPDATED: every table, file_arrival: one object), nothing changed for
+#   wait_after_last_change_seconds, and min_time_between_triggers_seconds have passed since
+#   the last run it started -> write the state back only if no other check wrote it since
+#   (the lock: two checks never both start a run) -> start the job's Workflow, not waiting
+#
+# A BigQuery table's freshness is its lastModifiedTime, as batch_serve's wait reads it; a
+# lakehouse Iceberg table's is its current snapshot in its BigLake catalog (one commit each,
+# so a half-written table is never seen). A run it starts gets what fired it as
+# trigger_values, the {{job.trigger.table_update...}} references (bundle.trigger_values).
+#
+# args (bundle._trigger_argument):
+#   job, target              the bundle job and target
+#   kind                     table_update | file_arrival
+#   tables, condition        table_update: [{name, kind: bigquery | iceberg, project, and
+#                            dataset, table | catalog, namespace, table}], ANY_UPDATED | ALL_UPDATED
+#   watch_bucket, watch_prefix  file_arrival: objects under gs://<watch_bucket>/<watch_prefix>
+#   workflow, job_argument   the job's Workflow and the argument a run of it gets
+#   bucket, state_object     the state at gs://<bucket>/<state_object>
+#   min_time_between_triggers_seconds, wait_after_last_change_seconds
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
+          - now: ${sys.now()}
+          - versions: {}
+    - read:
+        call: read_state
+        args:
+          bucket: ${args.bucket}
+          object: ${args.state_object}
+        result: stored
+    - observe:
+        switch:
+          - condition: ${args.kind == "table_update"}
+            steps:
+              - tables:
+                  call: observe_tables
+                  args:
+                    tables: ${args.tables}
+                  result: observed
+              - split_observed:
+                  assign:
+                    - seen: ${observed.seen}
+                    - versions: ${observed.versions}
+          - condition: ${args.kind == "file_arrival"}
+            steps:
+              - files:
+                  call: observe_files
+                  args:
+                    bucket: ${args.watch_bucket}
+                    prefix: ${args.watch_prefix}
+                  result: seen
+    - baseline:
+        switch:
+          - condition: ${stored.state == null}
+            steps:
+              - save_first:
+                  call: write_state
+                  args:
+                    bucket: ${args.bucket}
+                    object: ${args.state_object}
+                    generation: ${stored.generation}
+                    state:
+                      seen: ${seen}
+                      pending: {}
+                      last_fired: 0
+                  result: written
+              - recorded:
+                  return:
+                    fired: false
+                    reason: baseline
+    - diff:
+        assign:
+          - state: ${stored.state}
+          - pending: ${state.pending}
+    - each_seen:
+        for:
+          value: tkey
+          in: ${keys(seen)}
+          steps:
+            - changed:
+                switch:
+                  - condition: ${seen[tkey] > default(map.get(state.seen, tkey), 0)}
+                    steps:
+                      - mark:
+                          assign:
+                            - pending[tkey]: ${seen[tkey]}
+    - latest:
+        assign:
+          - latest_change: 0
+    - each_pending:
+        for:
+          value: tkey
+          in: ${keys(pending)}
+          steps:
+            - newest:
+                assign:
+                  - latest_change: ${math.max(latest_change, pending[tkey])}
+    - decide:
+        assign:
+          - needed: ${if(args.kind == "table_update" and args.condition == "ALL_UPDATED", len(args.tables), 1)}
+          - ready: ${len(keys(pending)) >= needed and now - latest_change >= args.wait_after_last_change_seconds and now - state.last_fired >= args.min_time_between_triggers_seconds}
+          - none_pending: {}
+          - next_state:
+              seen: ${seen}
+              pending: ${if(ready, none_pending, pending)}
+              last_fired: ${if(ready, now, state.last_fired)}
+    - save:
+        call: write_state
+        args:
+          bucket: ${args.bucket}
+          object: ${args.state_object}
+          generation: ${stored.generation}
+          state: ${next_state}
+        result: written
+    # Another check wrote the state first: it has seen the same change and decides for it.
+    - lost_the_race:
+        switch:
+          - condition: ${not written}
+            steps:
+              - raced:
+                  return:
+                    fired: false
+                    reason: another check ran first
+    - fire:
+        switch:
+          - condition: ${ready}
+            steps:
+              - what_fired:
+                  call: trigger_values
+                  args:
+                    kind: ${args.kind}
+                    tables: ${default(map.get(args, "tables"), [])}
+                    pending: ${pending}
+                    versions: ${versions}
+                  result: fired_values
+              - run_argument:
+                  assign:
+                    - run_arg: ${args.job_argument}
+                    - run_arg["trigger_values"]: ${fired_values}
+              - start_job:
+                  call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.create
+                  args:
+                    parent: ${"projects/" + project + "/locations/" + location + "/workflows/" + args.workflow}
+                    body:
+                      argument: ${json.encode_to_string(run_arg)}
+                    # Fired, not waited on: the connector otherwise waits for the whole run.
+                    connector_params:
+                      skip_polling: true
+                  result: started_run
+              - log_fired:
+                  call: sys.log
+                  args:
+                    severity: INFO
+                    json:
+                      event: mlops_trigger
+                      job: ${args.job}
+                      target: ${args.target}
+                      changed: ${pending}
+                      run: ${started_run.name}
+    - done:
+        return:
+          fired: ${ready}
+          pending: ${next_state.pending}
+
+# {seen: {name: the commit's time in epoch seconds}, versions: {name: the commit's version}}:
+# a BigQuery table by its lastModifiedTime (no version), an Iceberg table by its catalog's
+# current snapshot (time and id).
+observe_tables:
+  params: [tables]
+  steps:
+    - init_tables:
+        assign:
+          - seen: {}
+          - versions: {}
+    - each_table:
+        for:
+          value: t
+          in: ${tables}
+          steps:
+            - by_kind:
+                switch:
+                  - condition: ${t.kind == "iceberg"}
+                    steps:
+                      # The catalog vends storage credentials and refuses a load without
+                      # this header; only the metadata is read here.
+                      - load_table:
+                          call: http.get
+                          args:
+                            url: '${"https://biglake.googleapis.com/iceberg/v1/restcatalog/v1/projects/" + t.project + "/catalogs/" + t.catalog + "/namespaces/" + t.namespace + "/tables/" + t.table + "?snapshots=refs"}'
+                            headers:
+                              X-Iceberg-Access-Delegation: vended-credentials
+                            auth:
+                              type: OAuth2
+                          result: loaded
+                      - snapshot:
+                          call: current_snapshot
+                          args:
+                            metadata: ${loaded.body.metadata}
+                          result: snap
+                      - record_iceberg:
+                          assign:
+                            - seen[t.name]: ${snap.at}
+                            - versions[t.name]: ${snap.id}
+                  - condition: true
+                    steps:
+                      - get_table:
+                          call: googleapis.bigquery.v2.tables.get
+                          args:
+                            projectId: ${t.project}
+                            datasetId: ${t.dataset}
+                            tableId: ${t.table}
+                          result: meta
+                      - record_table:
+                          assign:
+                            - seen[t.name]: ${double(meta.lastModifiedTime) / 1000}
+                            - versions[t.name]: ""
+    - tables_seen:
+        return:
+          seen: ${seen}
+          versions: ${versions}
+
+# {at: the current snapshot's commit time in epoch seconds, id: its id as text}; a table with
+# no snapshot yet is {at: 0, id: ""}.
+current_snapshot:
+  params: [metadata]
+  steps:
+    - current_id:
+        assign:
+          - current: ${default(map.get(metadata, "current-snapshot-id"), -1)}
+    - each_snapshot:
+        for:
+          value: snap
+          in: ${default(map.get(metadata, "snapshots"), [])}
+          steps:
+            - is_current:
+                switch:
+                  - condition: ${snap["snapshot-id"] == current}
+                    steps:
+                      - found:
+                          return:
+                            at: ${double(snap["timestamp-ms"]) / 1000}
+                            id: ${string(current)}
+    - no_snapshot:
+        return:
+          at: 0
+          id: ""
+
+# The {{job.trigger.table_update...}} values of the run this check starts, named as
+# bundle.trigger_values names them: the tables that changed and, for each, the commit that
+# fired it (one watched table: also without its name segment). None for file_arrival.
+trigger_values:
+  params: [kind, tables, pending, versions]
+  steps:
+    - only_tables:
+        switch:
+          - condition: ${kind != "table_update"}
+            steps:
+              - no_values:
+                  return: {}
+    - init_values:
+        assign:
+          - prefix: "job.trigger.table_update."
+          - values: {}
+          - updated: ${keys(pending)}
+          - values[prefix + "updated_tables"]: ${json.encode_to_string(updated)}
+    - each_updated:
+        for:
+          value: name
+          in: ${updated}
+          steps:
+            - commit:
+                assign:
+                  - iso: ${text.substring(time.format(pending[name]), 0, 19)}
+                  - ms: ${string(int(pending[name] * 1000))}
+                  - version: ${default(map.get(versions, name), "")}
+                  - values[prefix + name + ".commit_timestamp.iso_datetime"]: ${iso}
+                  - values[prefix + name + ".commit_timestamp.timestamp_ms"]: ${ms}
+                  - values[prefix + name + ".version"]: ${version}
+            - one_table:
+                switch:
+                  - condition: ${len(tables) == 1}
+                    steps:
+                      - unsegmented:
+                          assign:
+                            - values[prefix + "commit_timestamp.iso_datetime"]: ${iso}
+                            - values[prefix + "commit_timestamp.timestamp_ms"]: ${ms}
+                            - values[prefix + "version"]: ${version}
+    - values_fired:
+        return: ${values}
+
+# {"files": the newest object's update time in epoch seconds, 0 when there is none}
+observe_files:
+  params: [bucket, prefix]
+  steps:
+    - init_files:
+        assign:
+          - newest: 0
+          - token: null
+    - pages:
+        for:
+          value: page
+          range: [1, 50]
+          steps:
+            - list_page:
+                call: googleapis.storage.v1.objects.list
+                args:
+                  bucket: ${bucket}
+                  prefix: ${prefix}
+                  pageToken: ${token}
+                  fields: "items(updated),nextPageToken"
+                result: listing
+            - each_object:
+                for:
+                  value: o
+                  in: ${default(map.get(listing, "items"), [])}
+                  steps:
+                    - newer:
+                        assign:
+                          - newest: ${math.max(newest, time.parse(o.updated))}
+            - next_page:
+                switch:
+                  - condition: ${default(map.get(listing, "nextPageToken"), null) == null}
+                    next: break
+                  - condition: true
+                    steps:
+                      - set_token:
+                          assign:
+                            - token: ${listing.nextPageToken}
+    - files_seen:
+        return:
+          files: ${newest}
+
+# {state, generation}: state null and generation "0" when there is none yet.
+read_state:
+  params: [bucket, object]
+  steps:
+    - get_meta:
+        try:
+          call: googleapis.storage.v1.objects.get
+          args:
+            bucket: ${bucket}
+            object: ${text.url_encode(object)}
+          result: meta
+        except:
+          as: e
+          steps:
+            - only_missing:
+                switch:
+                  - condition: ${get_type(e) == "map" and default(map.get(e, "code"), 0) == 404}
+                    steps:
+                      - none_yet:
+                          return:
+                            state: null
+                            generation: "0"
+            - reraise:
+                raise: ${e}
+    - get_body:
+        call: http.get
+        args:
+          url: '${"https://storage.googleapis.com/download/storage/v1/b/" + bucket + "/o/" + text.url_encode(object) + "?alt=media&generation=" + meta.generation}'
+          auth:
+            type: OAuth2
+        result: resp
+    # Not if(): Workflows evaluates both of its branches, and json.decode refuses a map.
+    - parsed_state:
+        switch:
+          - condition: ${get_type(resp.body) == "bytes"}
+            steps:
+              - decoded:
+                  return:
+                    state: ${json.decode(resp.body)}
+                    generation: ${meta.generation}
+    - stored_state:
+        return:
+          state: ${resp.body}
+          generation: ${meta.generation}
+
+# Writes `state` if the object is still at `generation` ("0": still absent); false if
+# another check wrote it first.
+write_state:
+  params: [bucket, object, state, generation]
+  steps:
+    - put:
+        try:
+          call: googleapis.storage.v1.objects.insert
+          args:
+            bucket: ${bucket}
+            name: ${object}
+            ifGenerationMatch: ${generation}
+            uploadType: media
+            body: ${state}
+        except:
+          as: e
+          steps:
+            - only_conflict:
+                switch:
+                  - condition: ${get_type(e) == "map" and default(map.get(e, "code"), 0) == 412}
+                    steps:
+                      - conflict:
+                          return: false
+            - reraise:
+                raise: ${e}
+    - put_done:
+        return: true

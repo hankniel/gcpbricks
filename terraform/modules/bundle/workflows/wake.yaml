@@ -1,0 +1,39 @@
+# Wake one job's file_arrival trigger on a GCS event, as a Cloud Workflow. Deployed by
+# terraform/modules/bundle, one per file_arrival job and target; an Eventarc trigger on the
+# watched bucket starts it with the object-finalized CloudEvent.
+#
+#   ignore an object outside the watched prefix -> run the trigger check (trigger.yaml)
+#   now, with the job's trigger argument
+#
+# Eventarc filters by bucket only, so every object written to the bucket starts one short
+# execution here; a dedicated landing bucket keeps that to the files that matter. The
+# 5-minute poll still runs, so a lost event only delays a run.
+#
+# env (set by the module):
+#   MLOPS_TRIGGER_ARGUMENT   bundle._trigger_argument, as JSON
+#   MLOPS_TRIGGER_WORKFLOW   the bundle's trigger Workflow
+main:
+  params: [event]
+  steps:
+    - init:
+        assign:
+          - cfg: ${json.decode(sys.get_env("MLOPS_TRIGGER_ARGUMENT"))}
+          - name: ${event.data.name}
+          - prefix: ${cfg.watch_prefix}
+    - outside_prefix:
+        switch:
+          - condition: ${len(name) < len(prefix) or text.substring(name, 0, len(prefix)) != prefix}
+            steps:
+              - ignored:
+                  return:
+                    ignored: ${name}
+    - check_now:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.run
+        args:
+          workflow_id: ${sys.get_env("MLOPS_TRIGGER_WORKFLOW")}
+          location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
+          project_id: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          argument: ${cfg}
+        result: checked
+    - woke:
+        return: ${checked}

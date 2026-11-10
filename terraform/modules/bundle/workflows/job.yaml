@@ -1,0 +1,1003 @@
+# Run one bundle job's tasks, as a Cloud Workflow. Deployed by terraform/modules/bundle,
+# one per job and target, started by the job's Cloud Scheduler entry, its trigger, a
+# run_job_task or `mlops bundle run`.
+#
+#   read the job's definition -> wait for a turn: run when fewer than max_concurrent_runs
+#   executions started before this one are active, else skip (or, with queue, wait) ->
+#   log STARTED, start the duration watchdog -> resolve the run's {{...}} values -> run
+#   `levels` in order, each level's tasks in parallel: a task runs when its run_if holds
+#   over its dependencies, with retries -> log the outcome; fail if a leaf task failed
+#
+# Task states: SUCCESS, FAILED, UPSTREAM_FAILED (run_if unmet with a failed dependency),
+# EXCLUDED (run_if unmet otherwise, e.g. a condition_task went the other way). A run fails
+# when a leaf task (no task depends on it) is FAILED or UPSTREAM_FAILED. Every run
+# logs mlops_run entries (STARTED, then SUCCEEDED / FAILED / SKIPPED) and every task
+# mlops_task entries (STARTED, then its state): the module's alerts match on them.
+#
+# args: nothing, or {params: {name: value}} over the job's parameters, from a run, a
+# trigger or a run_job_task (in this bundle or another); anyone can start a job by name.
+# A repair adds {repair: {task_key: {status, outcome}}}: the tasks of the run it repairs,
+# whose SUCCESS ones are reused (logged REUSED), others it keeps as they ended (logged KEPT),
+# and the rest run again; a task's `argument`
+# there is merged into its Workflow's argument (a batch_serve_task's models to run again,
+# gcpbricks.runs.repair_argument), with {repair_of: <run id>, repair_id: <n>}: the run
+# it repairs and which repair it is, so {{job.run_id}} stays the run's (runs.start_repair).
+# {only: {task_key:
+# true}} runs those tasks alone, as Databricks' run-now `only`: the rest end EXCLUDED, and a
+# dependency outside it doesn't hold back a task in it.
+#
+# env (bundle.job_env, set by the module):
+#   MLOPS_BUCKET, MLOPS_DEFINITION  gs://<bucket>/<definition>: bundle.job_definition
+#   MLOPS_JOB, MLOPS_TARGET         the bundle job (its key) and target
+#   MLOPS_JOB_NAME                  the job's display name, which its failure email shows
+#
+# The definition (`defn`):
+#   region                   where the Cloud Run jobs and Workflows live
+#   parameters               {name: default}: the job's parameters
+#   levels                   [[task_key]]: every task's dependencies sit in earlier levels
+#   tasks                    {task_key: descriptor}, see bundle._descriptor
+#   max_concurrent_runs      how many runs may be active at once
+#   queue                    true: wait for a turn (up to 48 hours); false: skip
+#   timeout_seconds          0, or: start no level after this long and fail
+#   duration_warning_seconds 0, or: the watchdog logs DURATION_WARNING if the run is still
+#   watchdog                 active after this long ("" when 0)
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - location: ${sys.get_env("GOOGLE_CLOUD_LOCATION")}
+          - parent: ${"projects/" + project + "/locations/" + location + "/workflows/" + sys.get_env("GOOGLE_CLOUD_WORKFLOW_ID")}
+          - execution_id: ${sys.get_env("GOOGLE_CLOUD_WORKFLOW_EXECUTION_ID")}
+          - execution: ${parent + "/executions/" + execution_id}
+          - started: ${sys.now()}
+          - statuses: {}
+          - values: {}
+          - my_turn: false
+          - job_name: ${sys.get_env("MLOPS_JOB")}
+          - display_name: ${default(sys.get_env("MLOPS_JOB_NAME"), job_name)}
+          - empty: {}
+          - given: ${default(args, empty)}
+          - repair: ${default(map.get(given, "repair"), empty)}
+          - only: ${map.get(given, "only")}
+          - run_id: ${default(map.get(given, "repair_of"), execution_id)}
+          - repair_id: ${default(map.get(given, "repair_id"), 0)}
+    - read_definition:
+        call: read_json
+        args:
+          bucket: ${sys.get_env("MLOPS_BUCKET")}
+          object: ${sys.get_env("MLOPS_DEFINITION")}
+        result: defn
+    - with_definition:
+        assign:
+          - params: ${map.merge(defn.parameters, default(map.get(given, "params"), empty))}
+          - ctx:
+              project: ${project}
+              region: ${defn.region}
+              job: ${job_name}
+              target: ${sys.get_env("MLOPS_TARGET")}
+              run_id: ${run_id}
+              repair_id: ${repair_id}
+    # Runs take turns in start order, so two that start together never both skip.
+    - wait_turn:
+        for:
+          value: attempt
+          range: [0, 2880]
+          steps:
+            # The REST API, not the connector: the connector takes no filter or orderBy.
+            - active_runs:
+                call: http.get
+                args:
+                  url: ${"https://workflowexecutions.googleapis.com/v1/" + parent + "/executions"}
+                  auth:
+                    type: OAuth2
+                  query:
+                    filter: state="ACTIVE"
+                    orderBy: startTime
+                    pageSize: 100
+                result: active_resp
+            - active_list:
+                assign:
+                  - active: ${active_resp.body}
+            - count_ahead:
+                assign:
+                  - ahead: 0
+                  - mine: false
+            - each_active:
+                for:
+                  value: ex
+                  in: ${default(map.get(active, "executions"), [])}
+                  steps:
+                    # Listed names carry the project number, ours the project id: match the id.
+                    - ex_parts:
+                        assign:
+                          - parts: ${text.split(ex.name, "/")}
+                    - is_mine:
+                        switch:
+                          - condition: ${parts[len(parts) - 1] == execution_id}
+                            steps:
+                              - found:
+                                  assign:
+                                    - mine: true
+                              - stop_counting:
+                                  next: break
+                    - one_ahead:
+                        assign:
+                          - ahead: ${ahead + 1}
+            - take_turn:
+                switch:
+                  - condition: ${ahead < defn.max_concurrent_runs}
+                    steps:
+                      - turn:
+                          assign:
+                            - my_turn: true
+                      - go_run:
+                          next: break
+                  - condition: ${not defn.queue}
+                    steps:
+                      - no_turn:
+                          next: break
+            - wait_in_queue:
+                call: sys.sleep
+                args:
+                  seconds: 60
+    # Skipped: busy without a queue, or still waiting after 48 hours.
+    - skip_unless_turn:
+        switch:
+          - condition: ${not my_turn}
+            steps:
+              - log_skip:
+                  call: log_run
+                  args:
+                    ctx: ${ctx}
+                    state: "SKIPPED"
+                    tasks: {}
+              - skipped:
+                  return:
+                    status: SKIPPED
+    - log_start:
+        call: log_run
+        args:
+          ctx: ${ctx}
+          state: "STARTED"
+          tasks: {}
+    - start_watchdog:
+        switch:
+          - condition: ${defn.watchdog != ""}
+            steps:
+              - watchdog_argument:
+                  assign:
+                    - watched:
+                        job: ${job_name}
+                        target: ${ctx.target}
+                        execution: ${execution}
+                        seconds: ${defn.duration_warning_seconds}
+              - watchdog:
+                  try:
+                    call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.create
+                    args:
+                      parent: ${"projects/" + project + "/locations/" + location + "/workflows/" + defn.watchdog}
+                      body:
+                        argument: ${json.encode_to_string(watched)}
+                      # Started, not waited on: the connector otherwise waits out the watchdog's sleep.
+                      connector_params:
+                        skip_polling: true
+                  except:
+                    as: e
+                    steps:
+                      - log_no_watchdog:
+                          call: sys.log
+                          args:
+                            severity: WARNING
+                            json:
+                              event: mlops_watchdog_not_started
+                              job: ${job_name}
+                              error: ${e}
+    - run_values:
+        assign:
+          - values["job.id"]: ${job_name}
+          - values["job.name"]: ${display_name}
+          - values["job.run_id"]: ${run_id}
+          - values["job.repair_count"]: ${string(repair_id)}
+          - values["job.start_time.iso_date"]: ${text.substring(time.format(started), 0, 10)}
+          - values["job.start_time.iso_datetime"]: ${text.substring(time.format(started), 0, 19)}
+          - values["job.start_time.timestamp_ms"]: ${string(int(started * 1000))}
+    # What fired the run when its table_update trigger did (trigger.yaml), else empty.
+    - trigger_values:
+        for:
+          value: name
+          in: ${keys(default(map.get(defn, "trigger_values"), empty))}
+          steps:
+            - fired_or_empty:
+                assign:
+                  - values[name]: ${default(map.get(default(map.get(given, "trigger_values"), empty), name), defn.trigger_values[name])}
+    # A parameter's value may itself reference the run values, as Databricks' defaults do.
+    - parameter_values:
+        for:
+          value: name
+          in: ${keys(params)}
+          steps:
+            - as_text:
+                assign:
+                  - raw: ${params[name]}
+                  - text_value: ${if(get_type(raw) == "string", raw, json.encode_to_string(raw))}
+            - resolve_parameter:
+                call: subst
+                args:
+                  s: ${text_value}
+                  values: ${values}
+                result: resolved
+            - set_parameter:
+                assign:
+                  - values["job.parameters." + name]: ${resolved}
+    - run_levels:
+        for:
+          value: level
+          in: ${defn.levels}
+          steps:
+            - check_deadline:
+                switch:
+                  - condition: ${defn.timeout_seconds > 0 and sys.now() > started + defn.timeout_seconds}
+                    steps:
+                      - timed_out:
+                          raise: '${job_name + ": timed out after " + string(defn.timeout_seconds) + "s"}'
+            - run_level:
+                parallel:
+                  shared: [statuses]
+                  for:
+                    value: tkey
+                    in: ${level}
+                    steps:
+                      - run_one:
+                          call: run_task
+                          args:
+                            task: ${defn.tasks[tkey]}
+                            reuse: ${map.get(repair, tkey)}
+                            only: ${only}
+                            tkey: ${tkey}
+                            statuses: ${statuses}
+                            values: ${values}
+                            ctx: ${ctx}
+                          result: outcome
+                      - record:
+                          assign:
+                            - statuses[tkey]: ${outcome}
+    # As Databricks: the run fails only when a leaf task (one no task depends on) failed, so a
+    # task that handled another's failure (run_if AT_LEAST_ONE_FAILED) and succeeded saves it.
+    # In a run of some tasks (only), a task outside them depends on nothing it ran: `--only
+    # forecast` failing its forecast fails the run, though the job's decisioning depends on it.
+    - collect:
+        assign:
+          - failed: []
+          - feeds: {}
+    - find_feeds:
+        for:
+          value: tkey
+          in: ${keys(defn.tasks)}
+          steps:
+            - each_dependency:
+                for:
+                  value: dep
+                  in: ${defn.tasks[tkey].depends_on}
+                  steps:
+                    - mark_feeds:
+                        switch:
+                          - condition: ${only == null or tkey in only}
+                            steps:
+                              - fed:
+                                  assign:
+                                    - feeds[dep.task_key]: true
+    - find_failed:
+        for:
+          value: tkey
+          in: ${keys(statuses)}
+          steps:
+            - check_one:
+                switch:
+                  - condition: ${not (tkey in feeds) and (statuses[tkey].status == "FAILED" or statuses[tkey].status == "UPSTREAM_FAILED")}
+                    steps:
+                      - add_failed:
+                          assign:
+                            - failed: ${list.concat(failed, tkey)}
+    - log_end:
+        call: log_run
+        args:
+          ctx: ${ctx}
+          state: ${if(len(failed) > 0, "FAILED", "SUCCEEDED")}
+          tasks: ${statuses}
+    # The platform's own failure email (gcpbricks.notify on the project's mlops-notify
+    # job), unless the bundle's gcp.mail is false: started, not waited on, never the run's outcome.
+    - mail_failure:
+        switch:
+          - condition: ${len(failed) > 0 and len(keys(default(map.get(defn, "notify"), empty))) > 0}
+            steps:
+              - start_mail:
+                  try:
+                    call: googleapis.run.v2.projects.locations.jobs.run
+                    args:
+                      name: ${"projects/" + project + "/locations/" + defn.region + "/jobs/" + defn.notify.run_job}
+                      body:
+                        overrides:
+                          containerOverrides:
+                            - args: ${["python", "-m", "gcpbricks.notify", sys.get_env("GOOGLE_CLOUD_WORKFLOW_ID"), execution_id, display_name, ctx.target, json.encode_to_string(defn.notify.to)]}
+                      connector_params:
+                        skip_polling: true
+                  except:
+                    as: e
+                    steps:
+                      - mail_not_started:
+                          call: sys.log
+                          args:
+                            severity: WARNING
+                            json:
+                              event: mlops_mail
+                              job: ${job_name}
+                              target: ${ctx.target}
+                              error: ${e}
+    - fail_if_any_failed:
+        switch:
+          - condition: ${len(failed) > 0}
+            steps:
+              - raise_failed:
+                  raise:
+                    message: '${job_name + ": task(s) failed: " + json.encode_to_string(failed)}'
+                    tasks: ${statuses}
+    - done:
+        return:
+          status: SUCCEEDED
+          tasks: ${statuses}
+
+# One task: decide from its dependencies whether it runs, then run it with retries.
+# Returns {status, outcome}; outcome is a condition_task's "true" / "false", else "". A task
+# that ran another Workflow (or failed in a container) adds `execution`, which a repair reads.
+run_task:
+  params: [task, tkey, statuses, values, ctx, reuse, only: null]
+  steps:
+    # A run of some tasks only leaves the others out.
+    - outside_only:
+        switch:
+          - condition: ${only != null and not (tkey in only)}
+            steps:
+              - log_outside:
+                  call: log_task
+                  args:
+                    ctx: ${ctx}
+                    tkey: ${tkey}
+                    status: "EXCLUDED"
+              - outside:
+                  return:
+                    status: EXCLUDED
+                    outcome: ""
+    # A repair run keeps what the run it repairs did successfully.
+    # Or keeps a task the repair didn't pick as it ended (logged KEPT, so its failure doesn't
+    # alert again), which its dependents' run_if still sees.
+    - reuse_success:
+        switch:
+          - condition: ${reuse != null and reuse.status != "REPAIR"}
+            steps:
+              - log_reused:
+                  call: log_task
+                  args:
+                    ctx: ${ctx}
+                    tkey: ${tkey}
+                    status: ${if(reuse.status == "SUCCESS", "REUSED", "KEPT")}
+                    result: ${reuse}
+              # With the child run it names, so a later repair still finds it.
+              - reused:
+                  return: ${reuse}
+    - init_counts:
+        assign:
+          - n_ok: 0
+          - n_failed: 0
+          - n: 0
+    - count_dependencies:
+        for:
+          value: dep
+          in: ${task.depends_on}
+          steps:
+            - in_scope:
+                switch:
+                  - condition: ${only == null or dep.task_key in only}
+                    steps:
+                      - classify:
+                          assign:
+                            - got: ${statuses[dep.task_key]}
+                            - n: ${n + 1}
+                            - n_ok: ${n_ok + if(got.status == "SUCCESS" and (dep.outcome == "" or dep.outcome == got.outcome), 1, 0)}
+                            - n_failed: ${n_failed + if(got.status == "FAILED" or got.status == "UPSTREAM_FAILED", 1, 0)}
+    - decide:
+        assign:
+          - r: ${task.run_if}
+          - go: ${(r == "ALL_SUCCESS" and n_ok == n) or (r == "AT_LEAST_ONE_SUCCESS" and n_ok > 0) or (r == "NONE_FAILED" and n_failed == 0) or r == "ALL_DONE" or (r == "AT_LEAST_ONE_FAILED" and n_failed > 0) or (r == "ALL_FAILED" and n_failed == n)}
+    - skip_unless_go:
+        switch:
+          - condition: ${not go}
+            steps:
+              - log_not_run:
+                  call: log_task
+                  args:
+                    ctx: ${ctx}
+                    tkey: ${tkey}
+                    status: ${if(n_failed > 0, "UPSTREAM_FAILED", "EXCLUDED")}
+              - not_run:
+                  return:
+                    status: ${if(n_failed > 0, "UPSTREAM_FAILED", "EXCLUDED")}
+                    outcome: ""
+    - log_task_start:
+        call: log_task
+        args:
+          ctx: ${ctx}
+          tkey: ${tkey}
+          status: "STARTED"
+    # values is this call's own copy: the task's name joins the run's values here only.
+    - name_the_task:
+        assign:
+          - values["task.name"]: ${tkey}
+          - child_run: ""
+    - repair_argument:
+        switch:
+          - condition: ${reuse != null and "argument" in reuse}
+            assign:
+              - task.argument: ${map.merge(task.argument, reuse.argument)}
+    - attempt:
+        try:
+          call: with_retries
+          args:
+            task: ${task}
+            values: ${values}
+            ctx: ${ctx}
+          result: outcome
+        except:
+          as: e
+          steps:
+            - log_failed:
+                call: log_task
+                args:
+                  ctx: ${ctx}
+                  tkey: ${tkey}
+                  status: "FAILED"
+                  error: ${e}
+            # A Cloud Run execution too; runs.repair_argument reads only a Workflow's.
+            - failed_child:
+                switch:
+                  - condition: ${get_type(e) == "map"}
+                    assign:
+                      - child_run: ${default(map.get(e, "execution"), "")}
+            - failed:
+                return:
+                  status: FAILED
+                  outcome: ""
+                  execution: ${child_run}
+    - result:
+        assign:
+          - done:
+              status: SUCCESS
+              outcome: ${outcome}
+    - ran_child:
+        switch:
+          - condition: ${get_type(outcome) == "map"}
+            assign:
+              - done:
+                  status: SUCCESS
+                  outcome: ""
+                  execution: ${outcome.execution}
+    # With its result: a cancelled run returns none, so its repair reuses what this logged.
+    - log_ok:
+        call: log_task
+        args:
+          ctx: ${ctx}
+          tkey: ${tkey}
+          status: "SUCCESS"
+          result: ${done}
+    - succeeded:
+        return: ${done}
+
+with_retries:
+  params: [task, values, ctx]
+  steps:
+    - attempts:
+        for:
+          value: attempt
+          range: [0, "${task.max_retries}"]
+          steps:
+            - try_once:
+                try:
+                  call: execute
+                  args:
+                    task: ${task}
+                    values: ${values}
+                    ctx: ${ctx}
+                  result: outcome
+                except:
+                  as: e
+                  steps:
+                    - give_up:
+                        switch:
+                          - condition: ${attempt >= task.max_retries or (not task.retry_on_timeout and get_type(e) == "map" and "TimeoutError" in default(map.get(e, "tags"), []))}
+                            steps:
+                              - reraise:
+                                  raise: ${e}
+                    - backoff:
+                        switch:
+                          - condition: ${task.min_retry_interval_millis > 0}
+                            steps:
+                              - wait_retry:
+                                  call: sys.sleep
+                                  args:
+                                    seconds: ${task.min_retry_interval_millis / 1000}
+                    - retry:
+                        next: continue
+            - attempt_done:
+                return: ${outcome}
+
+execute:
+  params: [task, values, ctx]
+  steps:
+    - dispatch:
+        switch:
+          - condition: ${task.type == "cloud_run"}
+            steps:
+              - container:
+                  call: run_cloud_run
+                  args:
+                    task: ${task}
+                    values: ${values}
+                    ctx: ${ctx}
+                  result: outcome
+          - condition: ${task.type == "workflow"}
+            steps:
+              - child:
+                  call: run_workflow
+                  args:
+                    task: ${task}
+                    values: ${values}
+                    ctx: ${ctx}
+                  result: outcome
+          - condition: ${task.type == "condition"}
+            steps:
+              - compare:
+                  call: run_condition
+                  args:
+                    task: ${task}
+                    values: ${values}
+                  result: outcome
+          - condition: ${task.type == "for_each"}
+            steps:
+              - fan_out:
+                  call: run_for_each
+                  args:
+                    task: ${task}
+                    values: ${values}
+                    ctx: ${ctx}
+                  result: outcome
+    - executed:
+        return: ${outcome}
+
+run_cloud_run:
+  params: [task, values, ctx]
+  steps:
+    - init_args:
+        assign:
+          - container_args: []
+    - fill_args:
+        for:
+          value: a
+          in: ${task.args}
+          steps:
+            - fill_one:
+                call: subst
+                args:
+                  s: ${a}
+                  values: ${values}
+                result: filled
+            - add_arg:
+                assign:
+                  - container_args: ${list.concat(container_args, filled)}
+    # The task's env (bundle.files_env: the files version it reads), as the container's;
+    # a definition from before it carries none.
+    - init_env:
+        assign:
+          - no_env: {}
+          - task_env: ${default(map.get(task, "env"), no_env)}
+          - container:
+              args: ${container_args}
+              env: []
+    - fill_env:
+        for:
+          value: k
+          in: ${keys(task_env)}
+          steps:
+            - add_env:
+                assign:
+                  - entry:
+                      name: ${k}
+                      value: ${task_env[k]}
+                  - container.env: ${list.concat(container.env, entry)}
+    # Started without waiting, so the execution's name is known (and logged) at once:
+    # the console reads a task's logs and cancels it by that name.
+    - start_job:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: ${"projects/" + ctx.project + "/locations/" + ctx.region + "/jobs/" + task.run_job}
+          body:
+            overrides:
+              containerOverrides:
+                - ${container}
+              timeout: ${string(task.timeout_seconds) + "s"}
+          connector_params:
+            skip_polling: true
+        result: op
+    - started:
+        assign:
+          - run_execution: ${op.metadata.name}
+          - deadline: ${sys.now() + task.timeout_seconds + 300}
+          # Declared here: a variable first set inside a for loop is gone after it.
+          - ex: null
+    - log_execution:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: mlops_task_execution
+            job: ${ctx.job}
+            target: ${ctx.target}
+            task: ${default(map.get(values, "task.name"), "")}
+            input: ${default(map.get(values, "input"), "")}
+            execution: ${run_execution}
+    - wait_done:
+        for:
+          value: poll
+          range: [1, 100000]
+          steps:
+            - pause:
+                call: sys.sleep
+                args:
+                  seconds: 20
+            - check:
+                call: googleapis.run.v2.projects.locations.jobs.executions.get
+                args:
+                  name: ${run_execution}
+                result: ex
+            - finished:
+                switch:
+                  - condition: ${"completionTime" in ex}
+                    next: break
+                  - condition: ${sys.now() > deadline}
+                    steps:
+                      - stop_it:
+                          try:
+                            call: googleapis.run.v2.projects.locations.jobs.executions.cancel
+                            args:
+                              name: ${run_execution}
+                              connector_params:
+                                skip_polling: true
+                          except:
+                            as: e
+                            steps:
+                              - cancel_failed:
+                                  assign:
+                                    - cancel_error: ${e}
+                      - timed_out:
+                          raise:
+                            message: '${"timed out after " + string(task.timeout_seconds) + "s: " + run_execution}'
+                            tags: ["TimeoutError"]
+    - outcome:
+        switch:
+          - condition: ${default(map.get(ex, "succeededCount"), 0) < ex.taskCount}
+            steps:
+              - container_failed:
+                  raise:
+                    message: '${"Cloud Run execution failed: " + run_execution}'
+                    execution: ${run_execution}
+    - ran:
+        return: ""
+
+# Another Workflow: a run_job_task's job, or the vertex_pipeline / batch_serve runner. Its
+# options are filled, the empty ones dropped, JSON parsed when they parse, and merged into
+# argument[options_into] ("" = the argument itself).
+run_workflow:
+  params: [task, values, ctx]
+  steps:
+    - init_options:
+        assign:
+          - options: {}
+          - argument: ${task.argument}
+    - fill_options:
+        for:
+          value: name
+          in: ${keys(task.options)}
+          steps:
+            - fill_option:
+                call: subst
+                args:
+                  s: ${task.options[name]}
+                  values: ${values}
+                result: filled
+            - keep_option:
+                switch:
+                  - condition: ${filled != ""}
+                    steps:
+                      - parse_option:
+                          try:
+                            assign:
+                              - options[name]: ${json.decode(filled)}
+                          except:
+                            as: e
+                            steps:
+                              - as_string:
+                                  assign:
+                                    - options[name]: ${filled}
+    - merge_options:
+        switch:
+          - condition: ${len(keys(options)) > 0 and task.options_into == ""}
+            steps:
+              - merge_top:
+                  assign:
+                    - argument: ${map.merge(argument, options)}
+          - condition: ${len(keys(options)) > 0}
+            steps:
+              - merge_into:
+                  assign:
+                    - argument[task.options_into]: ${map.merge(default(map.get(argument, task.options_into), options), options)}
+    # Started without waiting, as a container is, so the child run's name is known (and
+    # logged) at once: the console links the task to it, reads its logs and cancels it.
+    - start_child:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.create
+        args:
+          parent: ${"projects/" + ctx.project + "/locations/" + ctx.region + "/workflows/" + task.workflow}
+          body:
+            argument: ${json.encode_to_string(argument)}
+          # The connector otherwise waits for the child to end (and gives up after 30 minutes).
+          connector_params:
+            skip_polling: true
+        result: child
+    - child_started:
+        assign:
+          - deadline: ${sys.now() + task.timeout_seconds + 300}
+          - state: ${child.state}
+    - log_child:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: mlops_task_execution
+            job: ${ctx.job}
+            target: ${ctx.target}
+            task: ${default(map.get(values, "task.name"), "")}
+            input: ${default(map.get(values, "input"), "")}
+            execution: ${child.name}
+    - wait_child:
+        for:
+          value: poll
+          range: [1, 100000]
+          steps:
+            - child_finished:
+                switch:
+                  - condition: ${state != "ACTIVE" and state != "QUEUED"}
+                    next: break
+                  - condition: ${sys.now() > deadline}
+                    steps:
+                      - stop_child:
+                          try:
+                            call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.cancel
+                            args:
+                              name: ${child.name}
+                          except:
+                            as: e
+                            steps:
+                              - child_cancel_failed:
+                                  assign:
+                                    - cancel_error: ${e}
+                      - child_timed_out:
+                          raise:
+                            message: '${"timed out after " + string(task.timeout_seconds) + "s: " + child.name}'
+                            tags: ["TimeoutError"]
+            - pause_child:
+                call: sys.sleep
+                args:
+                  seconds: 20
+            - check_child:
+                call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.get
+                args:
+                  name: ${child.name}
+                result: child
+            - child_state:
+                assign:
+                  - state: ${child.state}
+    - child_outcome:
+        switch:
+          - condition: ${state != "SUCCEEDED"}
+            steps:
+              - child_error:
+                  assign:
+                    - child_error: ""
+              - read_child_error:
+                  switch:
+                    - condition: ${"error" in child}
+                      steps:
+                        - child_error_payload:
+                            assign:
+                              - child_error: ${default(map.get(child.error, "payload"), "")}
+              - child_failed:
+                  raise:
+                    message: '${"child run " + state + ": " + child.name}'
+                    execution: ${child.name}
+                    state: ${state}
+                    error: ${child_error}
+    - child_done:
+        return:
+          execution: ${child.name}
+
+# Numbers compare as numbers; anything else only by EQUAL_TO / NOT_EQUAL, as text.
+run_condition:
+  params: [task, values]
+  steps:
+    - fill_left:
+        call: subst
+        args:
+          s: ${task.left}
+          values: ${values}
+        result: left
+    - fill_right:
+        call: subst
+        args:
+          s: ${task.right}
+          values: ${values}
+        result: right
+    - as_numbers:
+        try:
+          assign:
+            - l: ${double(left)}
+            - rv: ${double(right)}
+        except:
+          as: e
+          steps:
+            - text_only:
+                switch:
+                  - condition: ${task.op != "EQUAL_TO" and task.op != "NOT_EQUAL"}
+                    steps:
+                      - not_numbers:
+                          raise: '${"condition_task " + task.op + " needs numbers, got " + left + " and " + right}'
+            - as_text:
+                assign:
+                  - l: ${left}
+                  - rv: ${right}
+    - evaluate:
+        assign:
+          - op: ${task.op}
+          - result: ${(op == "EQUAL_TO" and l == rv) or (op == "NOT_EQUAL" and l != rv) or (op == "GREATER_THAN" and l > rv) or (op == "GREATER_THAN_OR_EQUAL" and l >= rv) or (op == "LESS_THAN" and l < rv) or (op == "LESS_THAN_OR_EQUAL" and l <= rv)}
+    - compared:
+        return: ${if(result, "true", "false")}
+
+# Runs task.task once per input, `concurrency` at a time; fails after all ran if any failed.
+run_for_each:
+  params: [task, values, ctx]
+  steps:
+    - fill_inputs:
+        call: subst
+        args:
+          s: ${task.inputs}
+          values: ${values}
+        result: raw_inputs
+    - init_for_each:
+        assign:
+          - inputs: ${json.decode(raw_inputs)}
+          - n_inputs: ${len(inputs)}
+          - size: ${task.concurrency}
+          - n_batches: ${(n_inputs + size - 1) // size}
+          - n_failed: 0
+    - batches:
+        switch:
+          - condition: ${n_inputs > 0}
+            steps:
+              - each_batch:
+                  for:
+                    value: b
+                    range: [0, "${n_batches - 1}"]
+                    steps:
+                      - run_batch:
+                          parallel:
+                            shared: [n_failed]
+                            for:
+                              value: i
+                              range: ["${b * size}", "${math.min((b + 1) * size, n_inputs) - 1}"]
+                              steps:
+                                - one_input:
+                                    assign:
+                                      - item: ${inputs[i]}
+                                      - item_values: ${values}
+                                      - item_values["input"]: ${if(get_type(item) == "string", item, json.encode_to_string(item))}
+                                - run_input:
+                                    try:
+                                      call: with_retries
+                                      args:
+                                        task: ${task.task}
+                                        values: ${item_values}
+                                        ctx: ${ctx}
+                                    except:
+                                      as: e
+                                      steps:
+                                        - count_failed:
+                                            assign:
+                                              - n_failed: ${n_failed + 1}
+    - fail_if_inputs_failed:
+        switch:
+          - condition: ${n_failed > 0}
+            steps:
+              - raise_inputs_failed:
+                  raise: '${"for_each_task: " + string(n_failed) + " of " + string(n_inputs) + " input(s) failed"}'
+    - all_inputs_done:
+        return: ""
+
+# Replaces every {{name}} in s with values[name].
+subst:
+  params: [s, values]
+  steps:
+    - no_refs:
+        switch:
+          - condition: ${len(text.find_all(s, "{{")) == 0}
+            steps:
+              - unchanged:
+                  return: ${s}
+    - each_value:
+        for:
+          value: name
+          in: ${keys(values)}
+          steps:
+            - replace:
+                assign:
+                  - s: ${text.replace_all(s, "{{" + name + "}}", values[name])}
+    - substituted:
+        return: ${s}
+
+log_task:
+  params: [ctx, tkey, status, error: null, result: null]
+  steps:
+    - log:
+        call: sys.log
+        args:
+          severity: ${if(status == "FAILED", "ERROR", "INFO")}
+          json:
+            event: mlops_task
+            job: ${ctx.job}
+            target: ${ctx.target}
+            task: ${tkey}
+            status: ${status}
+            error: ${error}
+            result: ${result}
+
+log_run:
+  params: [ctx, state, tasks]
+  steps:
+    - log:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: mlops_run
+            job: ${ctx.job}
+            target: ${ctx.target}
+            run_id: ${ctx.run_id}
+            repair_id: ${ctx.repair_id}
+            state: ${state}
+            tasks: ${tasks}
+
+read_json:
+  params: [bucket, object]
+  steps:
+    - get:
+        call: http.get
+        args:
+          url: '${"https://storage.googleapis.com/download/storage/v1/b/" + bucket + "/o/" + text.url_encode(object) + "?alt=media"}'
+          auth:
+            type: OAuth2
+        result: resp
+    - parsed:
+        switch:
+          - condition: ${get_type(resp.body) == "bytes"}
+            steps:
+              - decode:
+                  return: ${json.decode(resp.body)}
+    - as_is:
+        return: ${resp.body}

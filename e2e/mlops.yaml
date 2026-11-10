@@ -1,0 +1,51 @@
+# The platform's release gate: a release's CI deploys this bundle to dev and runs its job
+# before anything else gets the release (.gitlab-ci.yml, e2e). It takes the release's own
+# runtime image (mlops_version: latest) and the deploy paths every bundle uses: saved files,
+# a built environment, a job cluster, task dependencies, a notebook with its parameters.
+bundle:
+  name: mlops-gate
+  mlops_version: latest
+
+gcp:
+  project: my-gcp-project
+  region: us-central1
+  bucket: my-ml-bucket
+
+run_as:
+  service_principal_name: bundle-runner@my-gcp-project.iam.gserviceaccount.com
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+resources:
+  jobs:
+    main:
+      description: The release gate's run.
+      environments:
+        - environment_key: base
+          spec:
+            dependencies: []
+      job_clusters:
+        - job_cluster_key: main
+          new_cluster:
+            environment_key: base
+            cpu: 1
+            memory: 1Gi
+      tasks:
+        - task_key: check
+          job_cluster_key: main
+          spark_python_task:
+            python_file: check.py
+        - task_key: after
+          depends_on: [{task_key: check}]
+          job_cluster_key: main
+          spark_python_task:
+            python_file: check.py
+            parameters: ["after"]
+        - task_key: notebook
+          depends_on: [{task_key: check}]
+          notebook_task:
+            notebook_path: check.ipynb
+            base_parameters: {greeting: "from the job"}

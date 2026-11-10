@@ -1,0 +1,297 @@
+# Run one job's published Vertex pipeline (gcpbricks.publish), as a Cloud Workflow.
+# Deployed by terraform/modules/bundle, one per bundle and target; every vertex_pipeline_task
+# of the bundle runs through it, started by its job's Workflow (workflows/job.yaml).
+#
+#   read current.json -> skip if this job already has a run in flight -> create the
+#   PipelineJob from that version's spec + params (a repair: as a rerun of the run it
+#   repairs) -> wait -> fail unless SUCCEEDED
+#
+# args (bundle._vertex_argument, plus the optional last two):
+#   job, target              "<job>-<task_key>" and the target, stamped as labels on the run
+#   region                   Vertex region
+#   bucket, spec_prefix      current.json at gs://<bucket>/<spec_prefix>/current.json
+#   pipeline                 which entry of current.json to run
+#   max_hours                fail if the run is not done by then
+#   overrides                optional: parameter values merged over the published ones, from
+#                            the task's parameters
+#   poll_seconds             optional: how often to check the run, default 60
+#   repair                   optional, from a repair of the job run (runs.repair_argument):
+#                            {pipeline_job, rerun}. The run is created as a Vertex rerun of
+#                            pipeline_job (Preview, v1beta1): its steps that succeeded are
+#                            skipped and keep their outputs, the rest run (on this version's
+#                            spec, so a fix deployed since runs), and so do the `rerun` steps.
+#                            Should Vertex refuse the rerun, a fresh run starts instead.
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - api: '${"https://" + args.region + "-aiplatform.googleapis.com/v1/projects/" + project + "/locations/" + args.region}'
+          - gs_prefix: '${"gs://" + args.bucket + "/"}'
+          - poll_seconds: ${default(map.get(args, "poll_seconds"), 60)}
+          - deadline: ${sys.now() + args.max_hours * 3600}
+          - repair: ${map.get(args, "repair")}
+          - rerun_of: ""
+    - read_pointer:
+        call: read_json
+        args:
+          bucket: ${args.bucket}
+          object: '${args.spec_prefix + "/current.json"}'
+        result: current
+    - entry:
+        assign:
+          - published: ${map.get(current, args.pipeline)}
+    - check_entry:
+        switch:
+          - condition: ${published == null}
+            steps:
+              - missing:
+                  raise: '${args.job + ": current.json has no " + args.pipeline + " pipeline"}'
+    - read_spec:
+        call: read_json
+        args:
+          bucket: ${args.bucket}
+          object: ${text.substring(published.spec, len(gs_prefix), len(published.spec))}
+        result: spec
+    - read_params:
+        call: read_json
+        args:
+          bucket: ${args.bucket}
+          object: ${text.substring(published.params, len(gs_prefix), len(published.params))}
+        result: params
+    - apply_overrides:
+        switch:
+          - condition: ${"overrides" in args}
+            steps:
+              - merge:
+                  assign:
+                    - params.parameter_values: ${map.merge(params.parameter_values, args.overrides)}
+    # One run per job and target at a time, however it was started.
+    - in_flight:
+        call: http.get
+        args:
+          url: '${api + "/pipelineJobs"}'
+          auth:
+            type: OAuth2
+          query:
+            filter: '${"labels.mlops_job=\"" + args.job + "\" AND labels.mlops_target=\"" + args.target + "\" AND (state=\"PIPELINE_STATE_QUEUED\" OR state=\"PIPELINE_STATE_PENDING\" OR state=\"PIPELINE_STATE_RUNNING\")"}'
+            # Partial responses throughout: a job's resource carries its whole pipeline spec,
+            # and the execution's variables are capped at 512 KB.
+            fields: pipelineJobs.name
+        result: running
+    - skip_if_in_flight:
+        switch:
+          - condition: ${len(default(map.get(running.body, "pipelineJobs"), [])) > 0}
+            steps:
+              - log_skip:
+                  call: log_run
+                  args:
+                    job: ${args.job}
+                    target: ${args.target}
+                    version: ${current.version}
+                    run: ${running.body.pipelineJobs[0].name}
+                    state: "SKIPPED_IN_FLIGHT"
+              - skipped:
+                  return:
+                    status: skipped
+                    running: ${running.body.pipelineJobs[0].name}
+    # Workflows expressions take no map literal: the run's labels are built here.
+    - label_run:
+        assign:
+          - run_labels: ${params.labels}
+          - run_labels["mlops_job"]: ${args.job}
+          - run_labels["mlops_target"]: ${args.target}
+          - run_labels["version"]: ${text.substring(current.version, 0, 63)}
+    - run_body:
+        assign:
+          # Vertex takes [a-z0-9-] only; a job's task_key may hold "_".
+          - run_id: '${text.replace_all(text.to_lower(args.job + "-" + args.target), "_", "-") + "-" + string(int(sys.now()))}'
+          - body:
+              displayName: ${params.display_name}
+              pipelineSpec: ${spec}
+              labels: ${run_labels}
+              serviceAccount: ${default(map.get(params, "service_account"), map.get(params.parameter_values, "service_account"))}
+              runtimeConfig:
+                gcsOutputDirectory: ${params.pipeline_root}
+                parameterValues: ${params.parameter_values}
+          - spec: null
+          - created: null
+          - orig: null
+    - as_rerun:
+        switch:
+          - condition: ${repair != null and "pipeline_job" in repair}
+            steps:
+              - rerun:
+                  try:
+                    steps:
+                      - original:
+                          call: http.get
+                          args:
+                            url: '${"https://" + args.region + "-aiplatform.googleapis.com/v1/" + repair.pipeline_job}'
+                            auth:
+                              type: OAuth2
+                            query:
+                              fields: labels,jobDetail.taskDetails(taskId,taskName,taskUniqueName,state)
+                          result: orig
+                      - rerun_configs:
+                          assign:
+                            - configs: []
+                            - again: ${default(map.get(repair, "rerun"), [])}
+                      - each_step:
+                          for:
+                            value: t
+                            in: ${orig.body.jobDetail.taskDetails}
+                            steps:
+                              # A step that succeeded is skipped (its outputs reused) unless asked again.
+                              - one_config:
+                                  assign:
+                                    - cfg: {}
+                                    - cfg["taskId"]: ${t.taskId}
+                                    - cfg["taskName"]: ${default(map.get(t, "taskUniqueName"), t.taskName)}
+                                    - cfg["skipTask"]: ${t.state == "SUCCEEDED" and not (t.taskName in again)}
+                                    - configs: ${list.concat(configs, cfg)}
+                      - rerun_body:
+                          assign:
+                            - body["originalPipelineJobId"]: ${orig.body.labels["vertex-ai-pipelines-run-billing-id"]}
+                            - body["pipelineTaskRerunConfigs"]: ${configs}
+                      - create_rerun:
+                          call: http.post
+                          args:
+                            url: '${"https://" + args.region + "-aiplatform.googleapis.com/v1beta1/projects/" + project + "/locations/" + args.region + "/pipelineJobs"}'
+                            auth:
+                              type: OAuth2
+                            query:
+                              pipelineJobId: ${run_id}
+                              fields: name
+                            body: ${body}
+                          result: created
+                      - rerun_started:
+                          assign:
+                            - rerun_of: ${repair.pipeline_job}
+                  except:
+                    as: e
+                    steps:
+                      - log_no_rerun:
+                          call: sys.log
+                          args:
+                            severity: WARNING
+                            json:
+                              event: mlops_rerun_refused
+                              job: ${args.job}
+                              target: ${args.target}
+                              original: ${repair.pipeline_job}
+                              error: ${e}
+                      - fresh_body:
+                          assign:
+                            - body: ${map.delete(map.delete(body, "originalPipelineJobId"), "pipelineTaskRerunConfigs")}
+                            - created: null
+    - create:
+        switch:
+          - condition: ${created == null}
+            steps:
+              - create_fresh:
+                  call: http.post
+                  args:
+                    url: '${api + "/pipelineJobs"}'
+                    auth:
+                      type: OAuth2
+                    query:
+                      pipelineJobId: ${run_id}
+                      fields: name
+                    body: ${body}
+                  result: created
+    - started:
+        assign:
+          - run_name: ${created.body.name}
+          - body: null
+          - orig: null
+          - created: null
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: ${poll_seconds}
+    - poll:
+        call: http.get
+        args:
+          url: '${"https://" + args.region + "-aiplatform.googleapis.com/v1/" + run_name}'
+          auth:
+            type: OAuth2
+          query:
+            fields: name,state,error
+        result: job
+    - check:
+        switch:
+          - condition: ${job.body.state == "PIPELINE_STATE_SUCCEEDED"}
+            next: succeeded
+          - condition: ${job.body.state in ["PIPELINE_STATE_FAILED", "PIPELINE_STATE_CANCELLED"]}
+            next: failed
+          - condition: ${sys.now() > deadline}
+            next: timed_out
+        next: wait
+    - succeeded:
+        call: log_run
+        args:
+          job: ${args.job}
+          target: ${args.target}
+          version: ${current.version}
+          run: ${run_name}
+          state: ${job.body.state}
+          rerun_of: ${rerun_of}
+        next: done
+    - failed:
+        call: log_run
+        args:
+          job: ${args.job}
+          target: ${args.target}
+          version: ${current.version}
+          run: ${run_name}
+          state: ${job.body.state}
+          rerun_of: ${rerun_of}
+        next: raise_failed
+    - raise_failed:
+        raise: '${args.job + ": " + run_name + " ended " + job.body.state}'
+    - timed_out:
+        raise: '${args.job + ": " + run_name + " still " + job.body.state + " after max_hours"}'
+    - done:
+        return:
+          status: ${job.body.state}
+          run: ${run_name}
+          version: ${current.version}
+          rerun_of: ${rerun_of}
+
+# One structured entry per run outcome, for the project's log bucket.
+log_run:
+  params: [job, target, version, run, state, rerun_of: ""]
+  steps:
+    - log:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: mlops_run
+            job: ${job}
+            target: ${target}
+            version: ${version}
+            run: ${run}
+            state: ${state}
+            rerun_of: ${rerun_of}
+
+read_json:
+  params: [bucket, object]
+  steps:
+    - get:
+        call: http.get
+        args:
+          url: '${"https://storage.googleapis.com/download/storage/v1/b/" + bucket + "/o/" + text.url_encode(object) + "?alt=media"}'
+          auth:
+            type: OAuth2
+        result: resp
+    - parsed:
+        switch:
+          - condition: ${get_type(resp.body) == "bytes"}
+            steps:
+              - decode:
+                  return: ${json.decode(resp.body)}
+    - as_is:
+        return: ${resp.body}

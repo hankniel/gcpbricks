@@ -1,0 +1,431 @@
+# Run one batch_serve_task, as a Cloud Workflow. Deployed by terraform/modules/bundle, one
+# per bundle and target; every batch_serve_task of the bundle runs through it, started by
+# its job's Workflow (workflows/job.yaml).
+#
+#   each model's window -> run every model (in parallel) -> fail if any failed
+#
+# The task only runs each model over its window and waits. A Cloud Run model's job gets the
+# window and the run's start (to pin its reads to one moment) as env
+# (gcpbricks.batch_serve.window()) and does what it likes with its
+# predictions; a Vertex AI batch prediction model's predictions land in its output_table. A
+# failed model doesn't stop the others.
+#
+# The run returns, or raises with its failure, {run_id, started_ms, models}: each model's
+# window, run_id and status (SUCCEEDED / FAILED). A repair (gcpbricks.runs.repair_argument)
+# passes them back as args.repair: the run keeps the repaired run's run_id, start and windows
+# and runs only the models in resume (same run_id: its job skips the chunks it noted done,
+# gcpbricks.batch_serve.chunk_done) and fresh (a new run_id: every chunk again).
+#
+# args (bundle._batch_serve_argument; the last three are optional, the task's parameters):
+#   job, target              "<job>-<task_key>" and the target
+#   models                   [{model, job | vertex, from_days, to_days, output?}]: job is the
+#                            Cloud Run job, already suffixed for a non-prod target; vertex a
+#                            Vertex AI batch prediction (bundle._served_runner), run by
+#                            serve_vertex; the model's date in [today + from_days, today + to_days];
+#                            output the model's write declaration (JSON), set as SERVE_OUTPUT
+#                            (and SERVE_BACKFILL "true" on a run given from_date and to_date)
+#   service_account          what a Vertex batch prediction job runs as
+#   region                   Cloud Run region
+#   window_days              the model's date in [today - window_days, today], for a model
+#                            without from_days (a definition deployed before them)
+#   utc_offset_hours         where "today" is, e.g. 7
+#   max_hours                one model's limit
+#   from_date, to_date       optional: this range for every model instead
+#   only_models              optional: run just these model names
+#   bucket, progress_prefix  where a model's job notes its finished chunks: SERVE_PROGRESS is
+#                            gs://<bucket>/<progress_prefix>/<model run_id>/<model>/
+#   repair                   optional: {run_id, started_ms, models: {model: {from_date,
+#                            to_date, run_id}}, resume: [model], fresh: [model]}
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - local_now: ${sys.now() + args.utc_offset_hours * 3600}
+          - backfill: ${"from_date" in args and "to_date" in args}
+          - today: ${text.substring(time.format(local_now), 0, 10)}
+          - started_ms: ${int(sys.now() * 1000)}
+          - run_id: ${args.job + "-" + args.target + "-" + string(int(sys.now()))}
+          - models: ${args.models}
+          - windowed: []
+          - failed: []
+    - repairing:
+        switch:
+          - condition: ${"repair" in args}
+            steps:
+              - repaired_run:
+                  assign:
+                    - rp: ${args.repair}
+                    - run_id: ${rp.run_id}
+                    - started_ms: ${rp.started_ms}
+                    - stamp: ${string(int(sys.now()))}
+              # Every model of the repaired run, so this run's result still names them all.
+              - repaired_windows:
+                  for:
+                    value: m
+                    in: ${args.models}
+                    steps:
+                      - known:
+                          switch:
+                            - condition: ${m.model in rp.models}
+                              steps:
+                                - with_window:
+                                    assign:
+                                      - was: ${rp.models[m.model]}
+                                      - item: ${m}
+                                      - item.from_date: ${was.from_date}
+                                      - item.to_date: ${was.to_date}
+                                      - item.run_date: ${default(map.get(was, "run_date"), today)}
+                                      - item.backfill: ${default(map.get(was, "backfill"), false)}
+                                      - item.run_id: ${if(m.model in rp.fresh, was.run_id + "-r" + stamp, was.run_id)}
+                                      - item.status: ${if(m.model in rp.resume or m.model in rp.fresh, "PENDING", "SUCCEEDED")}
+                                      - windowed: ${list.concat(windowed, item)}
+    - repair_windows_set:
+        switch:
+          - condition: ${"repair" in args}
+            next: run
+    - only_some_models:
+        switch:
+          - condition: ${"only_models" in args}
+            steps:
+              - start_empty:
+                  assign:
+                    - models: []
+              - keep_listed:
+                  for:
+                    value: m
+                    in: ${args.models}
+                    steps:
+                      - keep:
+                          switch:
+                            - condition: ${m.model in args.only_models}
+                              steps:
+                                - add_listed:
+                                    assign:
+                                      - models: ${list.concat(models, m)}
+    - assign_windows:
+        for:
+          value: m
+          in: ${models}
+          steps:
+            # default() evaluates both arguments, so the fallback must not fail when the task has
+            # no window_days (null: every model carries its own window, hence from_days).
+            - daily:
+                assign:
+                  - from_days: ${default(map.get(m, "from_days"), 0 - default(map.get(m, "window_days"), default(args.window_days, 0)))}
+                  - to_days: ${default(map.get(m, "to_days"), 0)}
+                  - from_date: ${text.substring(time.format(local_now + from_days * 86400), 0, 10)}
+                  - to_date: ${text.substring(time.format(local_now + to_days * 86400), 0, 10)}
+            - given_range:
+                switch:
+                  - condition: ${backfill}
+                    steps:
+                      - use_args:
+                          assign:
+                            - from_date: ${args.from_date}
+                            - to_date: ${args.to_date}
+            # The whole entry, so a runner's own fields (job, vertex) come along.
+            - add_window:
+                assign:
+                  - item: ${m}
+                  - item.from_date: ${from_date}
+                  - item.to_date: ${to_date}
+                  - item.run_date: ${today}
+                  - item.backfill: ${backfill}
+                  - item.run_id: ${run_id}
+                  - item.status: PENDING
+                  - windowed: ${list.concat(windowed, item)}
+    - run:
+        parallel:
+          shared: [failed]
+          concurrency_limit: 4
+          for:
+            value: m
+            in: ${windowed}
+            steps:
+              # A repair runs only the models it names; the rest stay as the repaired run left them.
+              - pending:
+                  switch:
+                    - condition: ${m.status == "PENDING"}
+                      steps:
+                        - one_model:
+                            try:
+                              call: serve_model
+                              args:
+                                cfg: ${args}
+                                project: ${project}
+                                m: ${m}
+                                started_ms: ${started_ms}
+                            except:
+                              as: e
+                              steps:
+                                - log_failure:
+                                    call: sys.log
+                                    args:
+                                      severity: ERROR
+                                      json:
+                                        event: serving_model
+                                        status: failed
+                                        run_id: ${m.run_id}
+                                        job: ${args.job}
+                                        model: ${m.model}
+                                        from_date: ${m.from_date}
+                                        to_date: ${m.to_date}
+                                        error: ${e}
+                                - note_failure:
+                                    assign:
+                                      - failed: ${list.concat(failed, m.model)}
+    - statuses:
+        assign:
+          - served: []
+    - each_status:
+        for:
+          value: m
+          in: ${windowed}
+          steps:
+            - status:
+                assign:
+                  - item: ${m}
+                  - item.status: ${if(m.model in failed, "FAILED", "SUCCEEDED")}
+                  - served: ${list.concat(served, item)}
+    - any_failed:
+        switch:
+          - condition: ${len(failed) > 0}
+            steps:
+              - fail:
+                  raise:
+                    message: '${"serving failed for: " + json.encode_to_string(failed)}'
+                    run_id: ${run_id}
+                    started_ms: ${started_ms}
+                    models: ${served}
+    - done:
+        return:
+          run_id: ${run_id}
+          started_ms: ${started_ms}
+          models: ${served}
+
+# One model over its window. Raises on any failure.
+serve_model:
+  params: [cfg, project, m, started_ms]
+  steps:
+    - by_backend:
+        switch:
+          - condition: ${"vertex" in m}
+            steps:
+              - on_vertex:
+                  call: serve_vertex
+                  args:
+                    cfg: ${cfg}
+                    project: ${project}
+                    m: ${m}
+                    run_id: ${m.run_id}
+              - vertex_done:
+                  return: null
+    - score:
+        call: googleapis.run.v1.namespaces.jobs.run
+        args:
+          name: ${"namespaces/" + project + "/jobs/" + m.job}
+          location: ${cfg.region}
+          connector_params:
+            timeout: ${int(cfg.max_hours * 3600)}
+          body:
+            overrides:
+              containerOverrides:
+                - env:
+                    - name: SERVE_MODEL
+                      value: ${m.model}
+                    - name: FROM_DATE
+                      value: ${m.from_date}
+                    - name: TO_DATE
+                      value: ${m.to_date}
+                    - name: SERVE_RUN_ID
+                      value: ${m.run_id}
+                    - name: SERVE_STARTED_MS
+                      value: ${string(started_ms)}
+                    - name: SERVE_PROGRESS
+                      value: ${"gs://" + cfg.bucket + "/" + cfg.progress_prefix + "/" + m.run_id + "/" + m.model + "/"}
+                    - name: SERVE_RUN_DATE
+                      value: ${default(map.get(m, "run_date"), m.to_date)}
+                    - name: SERVE_OUTPUT
+                      value: ${default(map.get(m, "output"), "")}
+                    - name: SERVE_BACKFILL
+                      value: ${if(default(map.get(m, "backfill"), false), "true", "false")}
+
+# One model scored by a Vertex AI batch prediction job over BigQuery: input_table's rows in the
+# window, each given a _mlops_row id, go in; Vertex's output row carries that id beside its
+# prediction, which is joined back to its row into output_table, replaced each run: this run's
+# predictions, for a later task to use. Sized by machine_type and replicas.
+serve_vertex:
+  params: [cfg, project, m, run_id]
+  steps:
+    - init:
+        assign:
+          - v: ${m.vertex}
+          - out: ${text.split(v.output_table, ".")}
+          - ds: ${out[0] + "." + out[1]}
+          - tag: ${text.replace_all(m.model + "_" + run_id, "-", "_")}
+          - input_table: ${"_in_" + tag}
+          - host: ${"https://" + cfg.region + "-aiplatform.googleapis.com/v1/"}
+          - api: ${host + "projects/" + project + "/locations/" + cfg.region}
+          - deadline: ${sys.now() + cfg.max_hours * 3600}
+          - empty: {}
+          - entity_cols: ""
+    - snapshot_input:
+        call: googleapis.bigquery.v2.jobs.insert
+        args:
+          projectId: ${project}
+          body:
+            configuration:
+              query:
+                useLegacySql: false
+                query: '${"CREATE OR REPLACE TABLE `" + ds + "." + input_table + "` OPTIONS (expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)) AS SELECT GENERATE_UUID() AS _mlops_row, * FROM `" + v.input_table + "` WHERE `" + v.date_col + "` BETWEEN \"" + m.from_date + "\" AND \"" + m.to_date + "\""}'
+    - count_input:
+        call: googleapis.bigquery.v2.jobs.query
+        args:
+          projectId: ${project}
+          body:
+            useLegacySql: false
+            query: '${"SELECT COUNT(*) FROM `" + ds + "." + input_table + "`"}'
+        result: counted
+    - nothing_to_score:
+        switch:
+          - condition: ${int(counted.rows[0].f[0].v) == 0}
+            steps:
+              - log_empty:
+                  call: sys.log
+                  args:
+                    severity: INFO
+                    json:
+                      event: serving_model
+                      status: empty
+                      run_id: ${run_id}
+                      model: ${m.model}
+              - stop:
+                  return: null
+    - find_model:
+        call: http.get
+        args:
+          url: ${api + "/models"}
+          query:
+            filter: ${"display_name=\"" + v.registered_model + "\""}
+          auth:
+            type: OAuth2
+        result: listed
+    - has_model:
+        switch:
+          - condition: ${len(default(map.get(listed.body, "models"), [])) == 0}
+            steps:
+              - no_model:
+                  raise: ${"no Vertex AI model named " + v.registered_model}
+    - get_version:
+        call: http.get
+        args:
+          url: ${host + listed.body.models[0].name + v.version}
+          auth:
+            type: OAuth2
+        result: version
+    - versioned:
+        assign:
+          - model_name: ${listed.body.models[0].name + v.version}
+          - version_id: ${version.body.versionId}
+          - model_id: ${default(map.get(default(map.get(version.body, "labels"), empty), "model_id"), version_id)}
+    - job_body:
+        assign:
+          - body:
+              displayName: ${cfg.job + "-" + m.model}
+              model: ${model_name}
+              serviceAccount: ${cfg.service_account}
+              inputConfig:
+                instancesFormat: bigquery
+                bigquerySource:
+                  inputUri: ${"bq://" + ds + "." + input_table}
+              outputConfig:
+                predictionsFormat: bigquery
+                bigqueryDestination:
+                  outputUri: ${"bq://" + ds}
+              dedicatedResources:
+                machineSpec:
+                  machineType: ${v.machine_type}
+                startingReplicaCount: ${v.starting_replica_count}
+                maxReplicaCount: ${v.max_replica_count}
+              # BigQuery output takes no keyField: it carries the input columns, _mlops_row
+              # among them, beside the prediction.
+              instanceConfig:
+                instanceType: ${v.instance_type}
+    - with_included:
+        switch:
+          - condition: ${len(v.included_fields) > 0}
+            assign:
+              - body.instanceConfig.includedFields: ${v.included_fields}
+    - with_excluded:
+        switch:
+          - condition: ${len(v.excluded_fields) > 0}
+            assign:
+              - body.instanceConfig.excludedFields: ${v.excluded_fields}
+    - create_job:
+        call: http.post
+        args:
+          url: ${api + "/batchPredictionJobs"}
+          body: ${body}
+          auth:
+            type: OAuth2
+        result: created
+    - log_job:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: mlops_batch_prediction
+            job: ${cfg.job}
+            model: ${m.model}
+            batch_prediction_job: ${created.body.name}
+            model_version: ${model_name}
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: 60
+    - check:
+        call: http.get
+        args:
+          url: ${host + created.body.name}
+          auth:
+            type: OAuth2
+        result: job
+    - done_yet:
+        switch:
+          - condition: ${job.body.state == "JOB_STATE_SUCCEEDED"}
+            next: entity_list
+          - condition: ${job.body.state == "JOB_STATE_FAILED" or job.body.state == "JOB_STATE_CANCELLED" or job.body.state == "JOB_STATE_EXPIRED"}
+            steps:
+              - job_failed:
+                  raise: '${"Vertex AI batch prediction " + job.body.state + ": " + json.encode_to_string(default(map.get(job.body, "error"), empty))}'
+          - condition: ${sys.now() > deadline}
+            steps:
+              - too_long:
+                  raise: '${"Vertex AI batch prediction still " + job.body.state + " after max_hours: " + created.body.name}'
+    - poll_again:
+        next: wait
+    - entity_list:
+        for:
+          value: c
+          in: ${v.entity_id_columns}
+          steps:
+            - add_col:
+                assign:
+                  - entity_cols: ${entity_cols + "i.`" + c + "`, "}
+    - shape:
+        call: googleapis.bigquery.v2.jobs.insert
+        args:
+          projectId: ${project}
+          body:
+            configuration:
+              query:
+                useLegacySql: false
+                query: '${"CREATE OR REPLACE TABLE `" + v.output_table + "` AS SELECT " + entity_cols + "i.`" + v.date_col + "`, CAST(" + v.prediction_expr + " AS FLOAT64) AS `" + v.prediction_col + "`, \"" + model_id + "\" AS model_id, CURRENT_TIMESTAMP() AS scored_at FROM `" + ds + "." + job.body.outputInfo.bigqueryOutputTable + "` AS o JOIN `" + ds + "." + input_table + "` AS i USING (_mlops_row)"}'
+    - drop_output:
+        call: googleapis.bigquery.v2.tables.delete
+        args:
+          projectId: ${out[0]}
+          datasetId: ${out[1]}
+          tableId: ${job.body.outputInfo.bigqueryOutputTable}

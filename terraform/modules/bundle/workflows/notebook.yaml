@@ -1,0 +1,223 @@
+# Run a notebook_task's notebook on Colab Enterprise's notebook execution, as a Cloud Workflow.
+# Deployed by terraform/modules/bundle, one per bundle and target; every notebook_task of the
+# bundle runs through it, started by its job's Workflow (workflows/job.yaml).
+#
+#   read the notebook -> drop its saved outputs -> its parameters as a cell after the one
+#   tagged `parameters` (else first) -> create the execution -> wait -> fail unless SUCCEEDED
+#
+# args (bundle._notebook_argument, plus the optional last two):
+#   job, target              "<job>-<task_key>" and the target, in the execution's name
+#   region, bucket, object   the notebook at gs://<bucket>/<object>
+#   output_prefix            executions write gs://<bucket>/<output_prefix>/<id>/content.ipynb
+#   runtime_template         the Colab runtime template (display name) whose machine runs it
+#   timeout_seconds          its timeout
+#   service_account          the account it runs as
+#   parameters               optional: {name: value} from the task's base_parameters
+#   poll_seconds             optional: how often to check the execution, default 30
+main:
+  params: [args]
+  steps:
+    - init:
+        assign:
+          - project: ${sys.get_env("GOOGLE_CLOUD_PROJECT_ID")}
+          - api: '${"https://" + args.region + "-aiplatform.googleapis.com/v1/projects/" + project + "/locations/" + args.region}'
+          - poll_seconds: ${default(map.get(args, "poll_seconds"), 30)}
+          - deadline: ${sys.now() + args.timeout_seconds + 600}
+          - empty: {}
+          - none: []
+          - params: ${default(map.get(args, "parameters"), empty)}
+          - cells: []
+          - after: -1
+    - find_template:
+        call: http.get
+        args:
+          url: '${api + "/notebookRuntimeTemplates"}'
+          auth:
+            type: OAuth2
+          query:
+            filter: '${"displayName=\"" + args.runtime_template + "\""}'
+        result: templates
+    - template_found:
+        switch:
+          - condition: ${len(default(map.get(templates.body, "notebookRuntimeTemplates"), none)) == 0}
+            raise: '${args.job + ": no Colab runtime template " + args.runtime_template}'
+    - template:
+        assign:
+          - template: ${templates.body.notebookRuntimeTemplates[0].name}
+    - read_notebook:
+        call: read_json
+        args:
+          bucket: ${args.bucket}
+          object: ${args.object}
+        result: nb
+    # The parameters as one line of Python assignments; each value a JSON string literal,
+    # which Python reads as the same string.
+    - parameter_line:
+        assign:
+          - line: ""
+    - each_parameter:
+        for:
+          value: name
+          in: ${keys(params)}
+          steps:
+            - add:
+                assign:
+                  - line: '${line + if(line == "", "", "; ") + name + " = " + json.encode_to_string(params[name])}'
+    - find_parameters_cell:
+        for:
+          value: c
+          index: i
+          in: ${nb.cells}
+          steps:
+            - tagged:
+                switch:
+                  - condition: '${after == -1 and "parameters" in default(map.get(default(map.get(c, "metadata"), empty), "tags"), none)}'
+                    assign:
+                      - after: ${i}
+    - injected:
+        assign:
+          - cell:
+              cell_type: code
+              execution_count: null
+              outputs: []
+              metadata:
+                tags: ["injected-parameters"]
+              source: ${line}
+    - first_if_untagged:
+        switch:
+          - condition: ${line != "" and after == -1}
+            assign:
+              - cells: ${list.concat(cells, cell)}
+    # Saved outputs are dropped: the execution writes its own, and a Workflow's memory is small.
+    - copy_cells:
+        for:
+          value: c
+          index: i
+          in: ${nb.cells}
+          steps:
+            - clear_outputs:
+                switch:
+                  - condition: ${"outputs" in c}
+                    assign:
+                      - c["outputs"]: []
+            - keep:
+                assign:
+                  - cells: ${list.concat(cells, c)}
+            - after_tagged:
+                switch:
+                  - condition: ${line != "" and i == after}
+                    assign:
+                      - cells: ${list.concat(cells, cell)}
+    - with_cells:
+        assign:
+          - nb["cells"]: ${cells}
+          - display: '${args.job + "-" + args.target + "-" + string(int(sys.now()))}'
+    - create:
+        call: http.post
+        args:
+          url: '${api + "/notebookExecutionJobs"}'
+          auth:
+            type: OAuth2
+          body:
+            displayName: ${display}
+            directNotebookSource:
+              content: ${base64.encode(text.encode(json.encode_to_string(nb)))}
+            notebookRuntimeTemplateResourceName: ${template}
+            serviceAccount: ${args.service_account}
+            gcsOutputUri: '${"gs://" + args.bucket + "/" + args.output_prefix}'
+            executionTimeout: '${string(int(args.timeout_seconds)) + "s"}'
+        result: created
+    - execution_name:
+        assign:
+          - name: ${text.split(created.body.name, "/operations/")[0]}
+          - parts: ${text.split(name, "/")}
+          - id: ${parts[len(parts) - 1]}
+          - output: '${"gs://" + args.bucket + "/" + args.output_prefix + "/" + id + "/content.ipynb"}'
+    - log_started:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: notebook_started
+            job: ${args.job}
+            execution: ${name}
+            output: ${output}
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: ${poll_seconds}
+    - poll:
+        call: http.get
+        args:
+          url: '${"https://" + args.region + "-aiplatform.googleapis.com/v1/" + name}'
+          auth:
+            type: OAuth2
+        result: job
+    - check:
+        switch:
+          - condition: ${default(map.get(job.body, "jobState"), "") == "JOB_STATE_SUCCEEDED"}
+            next: succeeded
+          - condition: ${default(map.get(job.body, "jobState"), "") in ["JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"]}
+            next: failed
+          - condition: ${sys.now() > deadline}
+            next: timed_out
+        next: wait
+    - succeeded:
+        call: log_run
+        args:
+          job: ${args.job}
+          target: ${args.target}
+          run: ${name}
+          state: ${job.body.jobState}
+        next: done
+    - failed:
+        call: log_run
+        args:
+          job: ${args.job}
+          target: ${args.target}
+          run: ${name}
+          state: ${job.body.jobState}
+        next: raise_failed
+    - raise_failed:
+        raise: '${args.job + ": " + name + " ended " + job.body.jobState + ": " + default(map.get(default(map.get(job.body, "status"), empty), "message"), "")}'
+    - timed_out:
+        raise: '${args.job + ": " + name + " still " + default(map.get(job.body, "jobState"), "") + " after its timeout"}'
+    - done:
+        return:
+          status: ${job.body.jobState}
+          run: ${name}
+          output: ${output}
+
+# One structured entry per run outcome, for the project's log bucket.
+log_run:
+  params: [job, target, run, state]
+  steps:
+    - log:
+        call: sys.log
+        args:
+          severity: INFO
+          json:
+            event: mlops_run
+            job: ${job}
+            target: ${target}
+            run: ${run}
+            state: ${state}
+
+read_json:
+  params: [bucket, object]
+  steps:
+    - get:
+        call: http.get
+        args:
+          url: '${"https://storage.googleapis.com/download/storage/v1/b/" + bucket + "/o/" + text.url_encode(object) + "?alt=media"}'
+          auth:
+            type: OAuth2
+        result: resp
+    - parsed:
+        switch:
+          - condition: ${get_type(resp.body) == "bytes"}
+            steps:
+              - decode:
+                  return: ${json.decode(resp.body)}
+    - as_is:
+        return: ${resp.body}

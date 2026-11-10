@@ -1,0 +1,32 @@
+resources:
+  jobs:
+    nightly:
+      description: Build Demo App's tables, then score yesterday's cohorts.
+      parameters:
+        - name: run_date
+          default: "{{job.start_time.iso_date}}"
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: UTC
+      job_clusters:
+        - job_cluster_key: main
+          new_cluster:
+            docker_image:
+              url: ${var.image}
+            node_type_id: e2-standard-4
+      tasks:
+        - task_key: build_tables
+          dbt_task:
+            project_directory: dbt
+            schema: ${var.schema}
+            commands:
+              - dbt build -s tag:demo_app
+        - task_key: score
+          depends_on:
+            - task_key: build_tables
+          job_cluster_key: main
+          max_retries: 1
+          python_wheel_task:
+            package_name: model_inference
+            entry_point: nightly
+            parameters: ["--date", "{{job.parameters.run_date}}"]

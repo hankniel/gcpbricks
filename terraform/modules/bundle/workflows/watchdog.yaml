@@ -1,0 +1,39 @@
+# Watch one run's duration, as a Cloud Workflow: a job with a RUN_DURATION_SECONDS health
+# rule starts it beside each run (workflows/job.yaml). Deployed by terraform/modules/bundle,
+# one per bundle and target.
+#
+#   sleep `seconds` -> if the run is still active, log DURATION_WARNING (the job's
+#   on_duration_warning_threshold_exceeded alert matches on it)
+#
+# args (from job.yaml):
+#   job, target              the bundle job and target
+#   execution                the run's execution name
+#   seconds                  the health rule's threshold
+main:
+  params: [args]
+  steps:
+    - wait:
+        call: sys.sleep
+        args:
+          seconds: ${args.seconds}
+    - check:
+        call: googleapis.workflowexecutions.v1.projects.locations.workflows.executions.get
+        args:
+          name: ${args.execution}
+        result: run
+    - warn:
+        switch:
+          - condition: ${run.state == "ACTIVE"}
+            steps:
+              - log_warning:
+                  call: sys.log
+                  args:
+                    severity: WARNING
+                    json:
+                      event: mlops_run
+                      job: ${args.job}
+                      target: ${args.target}
+                      state: DURATION_WARNING
+                      seconds: ${args.seconds}
+    - done:
+        return: ${run.state}

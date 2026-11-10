@@ -1,0 +1,72 @@
+{
+  "alerts": [
+    {
+      "channels": [],
+      "emails": [],
+      "filter": "resource.type=\"workflows.googleapis.com/Workflow\" AND resource.labels.workflow_id=\"demo-app-nightly-dev\" AND jsonPayload.event=\"mlops_run\" AND jsonPayload.job=\"nightly\" AND jsonPayload.state=(\"FAILED\" OR \"SKIPPED\")",
+      "job_failure": true,
+      "key": "nightly:on_failure"
+    }
+  ],
+  "bucket": "my-ml-bucket",
+  "bundle": "demo-app",
+  "dashboards": {},
+  "jobs": {
+    "nightly": {
+      "argument": "{}",
+      "definition": "{\"duration_warning_seconds\": 0, \"levels\": [[\"build_tables\"], [\"score\"]], \"max_concurrent_runs\": 1, \"notify\": {\"run_job\": \"mlops-notify\", \"to\": [\"admin@example.com\"]}, \"parameters\": {\"run_date\": \"{{job.start_time.iso_date}}\"}, \"queue\": false, \"region\": \"us-central1\", \"settings\": {\"environments\": [], \"job_clusters\": [{\"cpu\": \"4\", \"env_vars\": {}, \"environment_key\": null, \"image\": \"us-central1-docker.pkg.dev/my-gcp-project/ml/model-serving:latest\", \"key\": \"main\", \"memory\": \"16Gi\", \"node_type_id\": \"e2-standard-4\", \"num_workers\": null}], \"no_alert_for_skipped_runs\": false, \"notifications\": [], \"trigger\": null}, \"tasks\": {\"build_tables\": {\"args\": [\"mlops-task\", \"dbt\", \"--files\", \"gs://my-ml-bucket/dev/.bundle/demo-app/files\", \"--project-directory\", \"dbt\", \"--catalog\", \"my-gcp-project\", \"--schema\", \"demo_app_dev\", \"--location\", \"us-central1\", \"--\", \"dbt build -s tag:demo_app\"], \"depends_on\": [], \"env\": {}, \"max_retries\": 0, \"min_retry_interval_millis\": 0, \"retry_on_timeout\": false, \"run_if\": \"ALL_SUCCESS\", \"run_job\": \"demo-app-dbt-dev\", \"timeout_seconds\": 86400, \"type\": \"cloud_run\"}, \"score\": {\"args\": [\"python\", \"-c\", \"import sys\\nfrom importlib.metadata import distribution\\n_, package, name, *argv = sys.argv\\nep = next(e for e in distribution(package).entry_points if e.name == name)\\nsys.argv = [name, *argv]\\nsys.exit(ep.load()())\\n\", \"model_inference\", \"nightly\", \"--date\", \"{{job.parameters.run_date}}\"], \"depends_on\": [{\"outcome\": \"\", \"task_key\": \"build_tables\"}], \"env\": {}, \"max_retries\": 1, \"min_retry_interval_millis\": 0, \"retry_on_timeout\": false, \"run_if\": \"ALL_SUCCESS\", \"run_job\": \"demo-app-nightly-main-dev\", \"timeout_seconds\": 86400, \"type\": \"cloud_run\"}}, \"timeout_seconds\": 0, \"trigger_values\": {}, \"watchdog\": \"\"}",
+      "definition_object": "dev/.bundle/demo-app/jobs/nightly.json",
+      "description": "Build Demo App's tables, then score yesterday's cohorts.",
+      "env": {
+        "MLOPS_BUCKET": "my-ml-bucket",
+        "MLOPS_DEFINITION": "dev/.bundle/demo-app/jobs/nightly.json",
+        "MLOPS_JOB": "nightly",
+        "MLOPS_JOB_NAME": "nightly",
+        "MLOPS_TARGET": "dev"
+      },
+      "labels": {
+        "mlops_bundle": "demo-app",
+        "mlops_target": "dev"
+      },
+      "paused": true,
+      "schedule": "0 2 * * *",
+      "time_zone": "UTC",
+      "workflow": "demo-app-nightly-dev"
+    }
+  },
+  "notebooks": {},
+  "region": "us-central1",
+  "run_jobs": {
+    "demo-app-dbt-dev": {
+      "args": null,
+      "cpu": null,
+      "env": {},
+      "image": null,
+      "labels": {
+        "mlops_bundle": "demo-app",
+        "mlops_target": "dev"
+      },
+      "memory": null
+    },
+    "demo-app-nightly-main-dev": {
+      "args": null,
+      "cpu": "4",
+      "env": {
+        "MLFLOW_ARTIFACT_ROOT": "gs://my-ml-bucket/dev/mlflow",
+        "MLFLOW_TRACKING_URI": "vertex://my-gcp-project/us-central1"
+      },
+      "image": "us-central1-docker.pkg.dev/my-gcp-project/ml/model-serving:latest",
+      "labels": {
+        "mlops_bundle": "demo-app",
+        "mlops_target": "dev"
+      },
+      "memory": "16Gi",
+      "tasks": null
+    }
+  },
+  "schemas": {},
+  "service_account": "bundle-runner@my-gcp-project.iam.gserviceaccount.com",
+  "target": "dev",
+  "task_workflows": {},
+  "triggers": {}
+}
