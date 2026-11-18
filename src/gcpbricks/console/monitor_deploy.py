@@ -82,7 +82,7 @@ def _deploy(gcp, user: str, target: str, quality_monitors: dict[str, dict], toke
     # deploy lists the bundle's files with git.
     subprocess.run(["git", "init", "-q", str(root)], check=True, timeout=30)
     version = "console-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    env = {**os.environ, "GITLAB_USER_EMAIL": user}
+    env = {**os.environ, "MLOPS_ACTOR": user}
     env.pop("MLOPS_DEPLOY_TOKEN", None)
     if token:
         env["MLOPS_DEPLOY_TOKEN"] = token

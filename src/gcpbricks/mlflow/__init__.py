@@ -107,7 +107,9 @@ def _check_tags(tags: dict) -> dict[str, str]:
 
 
 def _git_commit() -> str | None:
-    sha = os.environ.get("CI_COMMIT_SHA") or os.environ.get("GIT_COMMIT")
+    from gcpbricks import ci
+
+    sha = ci.commit() or os.environ.get("GIT_COMMIT")
     if sha:
         return sha.lower()
     try:

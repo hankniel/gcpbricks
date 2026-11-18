@@ -60,7 +60,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from gcpbricks import bundle as B
-from gcpbricks import environments, files, infra
+from gcpbricks import ci, environments, files, infra
 from gcpbricks import runs as runs_mod
 from gcpbricks.publish import POINTER_KEYS, publish, repoint
 from gcpbricks.targets import storage_prefix
@@ -86,8 +86,8 @@ def _workflow_path(lb: B.Loaded, job: str) -> str:
 def _version(explicit: str) -> str:
     if explicit:
         return explicit
-    if os.environ.get("CI_COMMIT_SHA"):
-        return os.environ["CI_COMMIT_SHA"]
+    if ci.commit():
+        return ci.commit()
     sha = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
                          check=True).stdout.strip()
     dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
@@ -323,11 +323,10 @@ def _previous_record(lb: B.Loaded) -> dict:
 def _source(lb: B.Loaded) -> dict:
     """The git commit a deploy ships: CI's, else the bundle checkout's (dirty when it has
     uncommitted changes, which the commit alone doesn't show). {} outside git."""
-    sha = os.environ.get("CI_COMMIT_SHA")
+    sha = ci.commit()
     if sha:
-        project = os.environ.get("CI_PROJECT_URL", "")
-        return {"commit": sha, "branch": os.environ.get("CI_COMMIT_REF_NAME", ""),
-                **({"commit_url": f"{project}/-/commit/{sha}"} if project else {})}
+        url = ci.commit_url(sha)
+        return {"commit": sha, "branch": ci.branch(), **({"commit_url": url} if url else {})}
 
     def git(*args: str) -> str:
         return subprocess.run(["git", "-C", str(lb.root), *args], capture_output=True, text=True,
@@ -348,8 +347,7 @@ def _record_deployment(lb: B.Loaded, version: str, out_dir: Path | None) -> None
 
     record = B.deployment(
         lb, version, installed("gcpbricks"),
-        os.environ.get("GITLAB_USER_EMAIL") or os.environ.get("USER", ""),
-        os.environ.get("CI_PIPELINE_URL", ""), datetime.now(UTC).isoformat(timespec="seconds"), _source(lb))
+        ci.actor(), ci.pipeline_url(), datetime.now(UTC).isoformat(timespec="seconds"), _source(lb))
     obj = B.deployment_object(lb.bundle, lb.target)
     body = json.dumps(record, indent=2, sort_keys=True)
     if out_dir is not None:
@@ -526,7 +524,7 @@ def _steps(raw: list[str]) -> dict[str, list[str]]:
 
 def _whoami() -> str:
     """Who repairs, for the run's record: CI's user, else the local one."""
-    return os.environ.get("GITLAB_USER_EMAIL") or os.environ.get("USER", "")
+    return ci.actor()
 
 
 def runs(lb: B.Loaded, name: str, n: int) -> int:
@@ -728,7 +726,7 @@ def main(argv: list[str] | None = None) -> int:
     common(sub.add_parser("render"))
     p = common(sub.add_parser("deploy"))
     p.add_argument("--image", default="")
-    p.add_argument("--version", default="", help="default: $CI_COMMIT_SHA, else git HEAD")
+    p.add_argument("--version", default="", help="default: CI's commit (gcpbricks.ci), else git HEAD")
     p.add_argument("--out-dir", type=Path, help="write what GCS would get here instead")
     common(sub.add_parser("destroy"))
     p = common(sub.add_parser("run"))

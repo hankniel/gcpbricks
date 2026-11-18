@@ -438,7 +438,7 @@ Also there: `MlflowClient.get_model_version`, `get_model_version_by_alias`,
 `delete_registered_model_alias`, `set_model_version_tag`, `delete_model_version_tag`,
 `search_model_versions("name='m' and tags.k='v'")`, `get_registered_model`,
 `create_model_version`, and `mlflow.register_model("runs:/<run>/<path>", name)`. A version
-records its run (`mlflow_run_id`) and commit (`git_commit`, from `CI_COMMIT_SHA` or git).
+records its run (`mlflow_run_id`) and commit (`git_commit`, from CI (`gcpbricks.ci`: GitLab CI, GitHub Actions or `MLOPS_COMMIT`) or git).
 Every job cluster's Cloud Run job gets `MLFLOW_TRACKING_URI=vertex://<project>/<region>` and
 `MLFLOW_ARTIFACT_ROOT=gs://<bucket>/<target prefix>mlflow`, as a Databricks job finds its
 MLflow configured; elsewhere, set both (or call `mlflow.set_tracking_uri`). Versions are
