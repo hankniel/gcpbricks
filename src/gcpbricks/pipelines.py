@@ -17,11 +17,13 @@ Steps run the task's environment image and import the project's code from the bu
         return fit(model)
 
 Deploy compiles with MLOPS_PIPELINE_IMAGE set to the environment's image, then sets
-MLOPS_BUNDLE_FILES / MLOPS_BUNDLE_VERSION and the MLflow env on every step container that
-runs it. The runtime image's sitecustomize then puts exactly that deploy's files on
-sys.path when Python starts (use_bundle), as Databricks runs a job's code from the
-bundle. A step that is not a container of that image (a CustomJob's worker pool) takes
-step_env() into its own env.
+MLOPS_BUNDLE_FILES and the MLflow env on every step container that runs it. The runtime
+image's sitecustomize then puts the run's deploy's files on sys.path when Python starts
+(use_bundle), as Databricks runs a job's code from the bundle. Which deploy is the run's
+label mlops_bundle_version (workflows/vertex_pipeline.yaml), not the spec's env: a step's
+spec is its cache key, so a repair after a deploy reuses what succeeded (a ParallelFor's
+iterations included) and runs the rest on the new code, as Databricks repairs. A step that
+is not a container of that image (a CustomJob's worker pool) takes step_env() into its own env.
 """
 from __future__ import annotations
 
@@ -33,9 +35,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-#: The env compile() is given and step_env() hands on: where the bundle's files are, which
-#: deploy, and where MLflow tracks.
-STEP_ENV = ("MLOPS_BUNDLE_FILES", "MLOPS_BUNDLE_VERSION", "MLFLOW_TRACKING_URI", "MLFLOW_ARTIFACT_ROOT")
+#: The env step_env() hands on: where the bundle's files are and where MLflow tracks. Not
+#: which deploy (MLOPS_BUNDLE_VERSION): that is the run's label, outside the cache key.
+STEP_ENV = ("MLOPS_BUNDLE_FILES", "MLFLOW_TRACKING_URI", "MLFLOW_ARTIFACT_ROOT")
+#: The run label naming the deploy a pipeline run's steps read (workflows/vertex_pipeline.yaml).
+VERSION_LABEL = "mlops_bundle_version"
 
 
 def image() -> str:
@@ -52,6 +56,15 @@ def step_env() -> dict[str, str]:
     return {k: os.environ[k] for k in STEP_ENV if os.environ.get(k)}
 
 
+def run_label(key: str) -> str | None:
+    """A label of the Vertex pipeline run this step belongs to (Vertex hands every step,
+    custom jobs included, its run's labels as VERTEX_AI_PIPELINES_RUN_LABELS)."""
+    try:
+        return json.loads(os.environ.get("VERTEX_AI_PIPELINES_RUN_LABELS") or "{}").get(key) or None
+    except ValueError:
+        return None
+
+
 def use_bundle() -> str | None:
     """With MLOPS_BUNDLE_FILES set: fetch that deploy's files once per container and put
     them first on sys.path (and PYTHONPATH, for child processes). Returns the root."""
@@ -60,7 +73,7 @@ def use_bundle() -> str | None:
         return None
     from gcpbricks import files
 
-    version = os.environ.get("MLOPS_BUNDLE_VERSION") or None
+    version = os.environ.get("MLOPS_BUNDLE_VERSION") or run_label(VERSION_LABEL)
     root = Path(tempfile.gettempdir()) / "mlops-bundle" / (version or "current")
     if not (root / ".fetched").exists():
         root.mkdir(parents=True, exist_ok=True)

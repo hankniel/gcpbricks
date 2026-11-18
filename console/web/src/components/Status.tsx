@@ -1,6 +1,6 @@
 import { keyframes } from "@emotion/react";
 import {
-  CheckCircleIcon, DotsCircleIcon, MinusCircleIcon, StopCircleIcon, SyncIcon, Typography,
+  CheckCircleIcon, CircleOffIcon, DotsCircleIcon, MinusCircleIcon, SyncIcon, Typography,
   XCircleIcon, useDesignSystemTheme,
 } from "@databricks/design-system";
 import { label } from "../util";
@@ -23,12 +23,12 @@ export function StatusIcon({ state }: { state: string | null | undefined }) {
       return <SyncIcon css={{ color: theme.colors.textValidationSuccess, display: "inline-flex",
                               animation: `${spin} 1.6s linear infinite`,
                               "@media (prefers-reduced-motion: reduce)": { animation: "none" } }} />;
-    case "QUEUED": case "PENDING":
+    case "QUEUED": case "PENDING": case null: case undefined:
       return <DotsCircleIcon css={{ color: theme.colors.textSecondary }} />;
     case "CANCELLED":
-      return <StopCircleIcon css={{ color: theme.colors.textSecondary }} />;
-    default:
       return <MinusCircleIcon css={{ color: theme.colors.textSecondary }} />;
+    default:  // skipped, not run: Databricks' Disabled
+      return <CircleOffIcon css={{ color: theme.colors.textSecondary }} />;
   }
 }
 
@@ -43,6 +43,18 @@ export function Status({ state }: { state: string | null | undefined }) {
   );
 }
 
+/** Databricks paints a cancelled run or task pink and hatched, apart from a skipped one's grey. */
+export const CANCELLED_PAINT = {
+  backgroundColor: "#F69CAD",
+  backgroundImage: "repeating-linear-gradient(-45deg, rgba(255,255,255,0.35), rgba(255,255,255,0.35) 1px, transparent 1px, transparent 6px)",
+} as const;
+
+/** A state's paint as CSS: the hatch for a cancelled one, its solid fill otherwise. */
+export function useStatePaint() {
+  const fill = useStateFill();
+  return (state?: string | null) => state === "CANCELLED" ? CANCELLED_PAINT : { backgroundColor: fill(state) };
+}
+
 /** The solid fill Databricks uses for a run's bar and a task's square in the matrix. */
 export function useStateFill() {
   const { theme } = useDesignSystemTheme();
@@ -52,6 +64,7 @@ export function useStateFill() {
       case "SUCCEEDED_WITH_FAILURES": return theme.colors.textValidationWarning;
       case "FAILED": return theme.colors.textValidationDanger;
       case "UPSTREAM_FAILED": return theme.colors.backgroundDanger;
+      case "CANCELLED": return CANCELLED_PAINT.backgroundColor;
       case "ACTIVE": case "RUNNING": return theme.colors.actionPrimaryBackgroundDefault;
       default: return theme.colors.border;
     }

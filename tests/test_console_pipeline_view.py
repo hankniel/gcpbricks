@@ -56,6 +56,21 @@ def test_a_step_under_a_condition_reads_through_it_to_its_real_source():
     assert cond["runs"]["kind"] == "dag" and cond["condition"] == "go == true"
 
 
+def test_an_importers_uri_is_text_whether_a_constant_or_wired_from_a_step():
+    spec = {"root": {"dag": {"tasks": {
+                "wired": {"componentRef": {"name": "comp-importer"},
+                          "inputs": {"parameters": {"uri": {"taskOutputParameter": {"producerTask": "prepare-op", "outputParameterKey": "parent"}}}}},
+                "fixed": {"componentRef": {"name": "comp-importer-2"}}}}},
+            "components": {"comp-importer": {"executorLabel": "exec-importer",
+                                             "inputDefinitions": {"parameters": {"uri": {"parameterType": "STRING"}}}},
+                           "comp-importer-2": {"executorLabel": "exec-importer-2"}},
+            "deploymentSpec": {"executors": {
+                "exec-importer": {"importer": {"artifactUri": {"runtimeParameter": "uri"}, "typeSchema": {"schemaTitle": "system.Model"}}},
+                "exec-importer-2": {"importer": {"artifactUri": {"constant": "gs://b/x"}, "typeSchema": {"schemaTitle": "system.Model"}}}}}}
+    assert PV.component(spec, "wired")["runs"]["artifact_uri"] == "prepare-op.parent"
+    assert PV.component(spec, "fixed")["runs"]["artifact_uri"] == "gs://b/x"
+
+
 class FakeGcp:
     def __init__(self):
         self.objects = {

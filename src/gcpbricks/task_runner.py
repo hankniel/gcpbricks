@@ -6,6 +6,7 @@ code, does the work.
                  [--state-location gs://...]
                  -- "dbt build -s tag:x" ["dbt test" ...]
   mlops-task python --files URI -- path/in/bundle.py [ARG ...]
+  mlops-task monitor --key KEY --config JSON --project P --bucket B --state-object O
 
 A dbt_task: fetch the bundle's files its deploy uploaded (MLOPS_FILES_VERSION; else the
 last deploy's, as before it was set), run
@@ -216,8 +217,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--local-root", type=Path, help=argparse.SUPPRESS)
     p.add_argument("python_file")
     p.add_argument("args", nargs=argparse.REMAINDER)
+    p = sub.add_parser("monitor", help="refresh a quality monitor's metric tables (gcpbricks.monitors)")
+    for opt in ("--key", "--config", "--project", "--bucket", "--state-object"):
+        p.add_argument(opt, required=True)
     a = ap.parse_args(argv)
-    return python(a) if a.cmd == "python" else dbt(a)
+    from gcpbricks import tracing
+
+    traced = tracing.install()
+    if a.cmd == "monitor":
+        from gcpbricks import monitors
+
+        return monitors.main_refresh(a.key, a.config, project=a.project, bucket=a.bucket,
+                                     state_object=a.state_object)
+    runner = tracing.traced_run if traced else subprocess.run
+    try:
+        return python(a, runner) if a.cmd == "python" else dbt(a, runner)
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
 
 
 if __name__ == "__main__":

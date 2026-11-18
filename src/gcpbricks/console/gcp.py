@@ -215,6 +215,14 @@ class Gcp:
     def bq_list(self, path: str, key: str, **params) -> list[dict]:
         return self._pages(f"{BIGQUERY}/projects/{self.project}/{path}", key, **params)
 
+    def bq_referenced_tables(self, fqn: str) -> list[str]:
+        """The tables a dry run of `SELECT * FROM fqn` reads, a view resolved to its own sources;
+        a dry run bills nothing."""
+        job = self._post(f"{BIGQUERY}/projects/{self.project}/jobs", {"configuration": {
+            "dryRun": True, "query": {"useLegacySql": False, "query": f"SELECT * FROM `{fqn}`"}}})
+        return [f"{t['projectId']}.{t['datasetId']}.{t['tableId']}"
+                for t in ((job.get("statistics") or {}).get("query") or {}).get("referencedTables") or []]
+
     def bq_query(self, body: dict) -> dict:
         r = self._post(f"{BIGQUERY}/projects/{self.project}/queries", body)
         for _ in range(6):

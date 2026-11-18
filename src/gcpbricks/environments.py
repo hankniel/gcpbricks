@@ -27,6 +27,9 @@ from gcpbricks.targets import storage_prefix
 RUNTIME_REPO = "us-central1-docker.pkg.dev/my-gcp-project/mlops"
 _MANIFESTS = ("application/vnd.docker.distribution.manifest.v2+json, "
               "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json")
+#: Cloud Build's machine: unpacking and pushing multi-GB ML wheels is bound by CPU and network,
+#: which the default machine has little of.
+BUILD_MACHINE = "E2_HIGHCPU_8"
 _FILE_OPTION = re.compile(r"^(-r|--requirement|-c|--constraint)[ =]\s*(\S+)\s*$")
 
 
@@ -68,7 +71,9 @@ def context(lb: B.Loaded, env: B.JobEnvironment) -> dict[str, bytes]:
         lines.append(dep)
     dockerfile = (f"FROM {runtime_image(lb)}\n"
                   "COPY . /tmp/env\n"
-                  "RUN pip install --no-cache-dir -r /tmp/env/requirements.txt && rm -rf /tmp/env\n")
+                  # uv: parallel download and install of the same pinned, hashed lines pip reads.
+                  "RUN pip install --no-cache-dir uv && uv pip install --system --no-cache"
+                  " -r /tmp/env/requirements.txt && pip uninstall -y uv && rm -rf /tmp/env\n")
     return {"Dockerfile": dockerfile.encode(), "requirements.txt": ("\n".join(lines) + "\n").encode(),
             **{f"files/{k}": v for k, v in files.items()}}
 
@@ -131,7 +136,7 @@ def build(session, lb: B.Loaded, image_ref: str, ctx: dict[str, bytes], log=prin
     r.raise_for_status()
     body = {"source": {"storageSource": {"bucket": b.gcp.bucket, "object": obj}},
             "steps": [{"name": "gcr.io/cloud-builders/docker", "args": ["build", "-t", image_ref, "."]}],
-            "images": [image_ref], "timeout": "3600s", "options": {"logging": "CLOUD_LOGGING_ONLY"}}
+            "images": [image_ref], "timeout": "3600s", "options": {"logging": "CLOUD_LOGGING_ONLY", "machineType": BUILD_MACHINE}}
     builds = f"https://cloudbuild.googleapis.com/v1/projects/{b.gcp.project}/locations/{b.gcp.region}/builds"
     r = session.post(builds, json=body)
     r.raise_for_status()

@@ -218,6 +218,73 @@ def test_a_table_is_created_with_the_outputs_partition_and_clustering():
     assert "CLUSTER BY" not in C.insert_sql(mode="append", keys=[], columns=["pred"], cluster_by=[], **kw)
 
 
+class _StagingClient:
+    """BigQuery as Staging uses it: loads, the staging table's metadata, the publish script."""
+
+    def __init__(self):
+        self.loads, self.scripts, self.deleted = [], [], []
+
+    def load_table_from_dataframe(self, df, table, job_config=None):
+        self.loads.append((table, len(df), job_config))
+        return type("Job", (), {"result": lambda self: None})()
+
+    def get_table(self, table):
+        from google.cloud import bigquery
+
+        return type("T", (), {"schema": [bigquery.SchemaField("pred", "FLOAT64")], "expires": None})()
+
+    def update_table(self, table, fields):
+        pass
+
+    def query(self, sql, job_config=None):
+        self.scripts.append(sql)
+        row = {"rows_staged": 5, "rows_replaced": 0, "rows_deleted": 0, "rows_inserted": 5}
+        return type("Job", (), {"result": lambda self: iter([row])})()
+
+    def delete_table(self, table, not_found_ok=False):
+        self.deleted.append(table)
+
+
+def _staging(client, **kw):
+    staged = C.Staging("p.d.t", "2026-09-01", "2026-09-05", date_col="snapshot_date", prediction_col="pred",
+                       entity_id_columns=KEYS, log=lambda _: None, **kw)
+    staged._client = client
+    return staged
+
+
+def test_staging_publishes_every_batch_in_one_write():
+    client = _StagingClient()
+    with _staging(client) as staged:
+        staged.add(_preds("2026-09-01", "2026-09-03"))
+        staged.add(_preds("2026-09-04", "2026-09-05"))
+        staged.add(_preds().iloc[0:0])
+        counts = staged.publish()
+    assert [(t, n) for t, n, _ in client.loads] == [(staged.staging, 3), (staged.staging, 2)]
+    first, second = client.loads[0][2], client.loads[1][2]
+    assert first is None and second.write_disposition == "WRITE_APPEND"
+    assert [f.name for f in second.schema] == ["pred"]
+    assert len(client.scripts) == 1 and f"FROM `{staged.staging}`" in client.scripts[0]
+    assert counts["rows_inserted"] == 5 and client.deleted == []
+
+
+def test_staging_checks_each_batch_and_drops_what_it_never_published():
+    client = _StagingClient()
+    with pytest.raises(ValueError, match="infinite"), _staging(client) as staged:
+        staged.add(_preds("2026-09-01", "2026-09-03"))
+        staged.add(_preds("2026-09-04", "2026-09-05").assign(pred=float("inf")))
+    assert client.scripts == [] and client.deleted == [staged.staging]
+    with pytest.raises(ValueError, match="not the first batch's"), _staging(_StagingClient()) as staged:
+        staged.add(_preds("2026-09-01", "2026-09-03"))
+        staged.add(_preds("2026-09-04", "2026-09-05").assign(extra=1))
+
+
+def test_a_staging_given_nothing_writes_nothing():
+    client = _StagingClient()
+    with _staging(client, mode="insert_new", keys=KEYS) as staged:
+        assert staged.publish() == {"rows_staged": 0, "rows_written": 0}
+    assert client.loads == client.scripts == client.deleted == []
+
+
 class _Table:
     def __init__(self, created):
         self.created = created

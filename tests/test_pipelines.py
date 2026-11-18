@@ -60,9 +60,81 @@ def test_compile_sets_the_bundle_env_on_the_environments_steps_only(tmp_path, mo
     executors = spec["deploymentSpec"]["executors"]
     env = {c["container"]["image"]: {e["name"]: e["value"] for e in c["container"].get("env", [])}
            for c in executors.values()}
-    assert env[IMAGE] == {"MLOPS_BUNDLE_FILES": "gs://b/dev/.bundle/demo/files", "MLOPS_BUNDLE_VERSION": "abc123"}
+    # Not MLOPS_BUNDLE_VERSION: which deploy is the run's label, outside a step's cache key.
+    assert env[IMAGE] == {"MLOPS_BUNDLE_FILES": "gs://b/dev/.bundle/demo/files"}
     assert env["python:3.11-slim"] == {}
     sys.path.remove(str(tmp_path))
+
+
+NESTED = textwrap.dedent('''
+    from kfp import dsl
+    from gcpbricks import pipelines
+
+    @dsl.component(base_image=pipelines.image())
+    def shard(i: int) -> int:
+        return i
+
+    @dsl.component(base_image=pipelines.image())
+    def gate(model: str) -> str:
+        return model
+
+    @dsl.pipeline(name="fanout")
+    def pipeline(model: str = "m"):
+        with dsl.ParallelFor(items=[0, 1, 2], parallelism=3) as i:
+            shard(i=i)
+        with dsl.If(model == "m"):
+            gate(model=model)
+''')
+
+
+def test_steps_inside_a_parallel_for_or_condition_get_the_bundle_env(tmp_path, monkeypatch):
+    """KFP lists every executor in deploymentSpec, nested sub-DAGs' included, so a fanned-out
+    step reads the bundle's code as a top-level one does."""
+    _bundle(tmp_path)
+    (tmp_path / "training" / "pipeline.py").write_text(NESTED)
+    monkeypatch.setenv("MLOPS_PIPELINE_IMAGE", IMAGE)
+    monkeypatch.setenv("MLOPS_BUNDLE_FILES", "gs://b/dev/.bundle/demo/files")
+    monkeypatch.setenv("MLOPS_BUNDLE_VERSION", "abc123")
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    monkeypatch.delenv("MLFLOW_ARTIFACT_ROOT", raising=False)
+    sys.modules.pop("training.pipeline", None)
+    spec = pipelines.compile_pipeline(tmp_path, "training/pipeline.py", "pipeline", tmp_path / "out.json")
+    nested = {t for c in spec["components"].values() if "dag" in c for t in c["dag"]["tasks"]}
+    assert {"shard", "gate"} <= nested and not {"shard", "gate"} & set(spec["root"]["dag"]["tasks"])
+    executors = spec["deploymentSpec"]["executors"]
+    assert {k for k in executors} == {"exec-shard", "exec-gate"}
+    for c in executors.values():
+        assert {e["name"]: e["value"] for e in c["container"]["env"]} == {
+            "MLOPS_BUNDLE_FILES": "gs://b/dev/.bundle/demo/files"}
+    sys.path.remove(str(tmp_path))
+
+
+def test_a_step_reads_the_deploy_its_run_is_labelled_with(tmp_path, monkeypatch):
+    """Vertex hands every step its run's labels; the deploy env, where set, still wins."""
+    got = []
+    monkeypatch.setattr("gcpbricks.files.fetch", lambda uri, dest, version=None: got.append(version) or version)
+    monkeypatch.setattr(pipelines.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setenv("MLOPS_BUNDLE_FILES", "gs://b/dev/.bundle/demo/files")
+    monkeypatch.delenv("MLOPS_BUNDLE_VERSION", raising=False)
+    monkeypatch.setenv("VERTEX_AI_PIPELINES_RUN_LABELS", json.dumps({"mlops_bundle_version": "v7", "mlops_job": "j"}))
+    root = pipelines.use_bundle()
+    assert got == ["v7"] and root.endswith("mlops-bundle/v7")
+    monkeypatch.setenv("MLOPS_BUNDLE_VERSION", "v8")
+    pipelines.use_bundle()
+    assert got == ["v7", "v8"]
+    monkeypatch.delenv("MLOPS_BUNDLE_VERSION")
+    monkeypatch.setenv("VERTEX_AI_PIPELINES_RUN_LABELS", "not json")
+    assert pipelines.run_label("mlops_bundle_version") is None
+    for p in list(sys.path):
+        if p.startswith(str(tmp_path)):
+            sys.path.remove(p)
+
+
+def test_the_runner_labels_a_run_with_the_deploy_its_steps_read():
+    from pathlib import Path
+
+    text = (Path(__file__).parents[1] / "terraform/modules/bundle/workflows/vertex_pipeline.yaml").read_text()
+    assert f'run_labels["{pipelines.VERSION_LABEL}"]: ${{text.substring(default(map.get(current, "bundle_version"), current.version), 0, 63)}}' in text
 
 
 def test_a_pipeline_needs_its_image_to_compile(tmp_path, monkeypatch):
@@ -95,7 +167,8 @@ def test_deploy_compiles_and_publishes_a_python_file_pipeline(tmp_path, monkeypa
     assert cli._publish_pipeline(lb, "retrain", task, IMAGE, "v1", out) == 0
     base = out / "dev/.bundle/demo/pipelines/retrain-forecast_30d"
     current = json.loads((base / "current.json").read_text())
-    assert current["image"] == IMAGE and set(current) == {"version", "image", "train"}
+    assert current["image"] == IMAGE and set(current) == {"version", "bundle_version", "image", "train"}
+    assert current["bundle_version"] == "v1"
     params = json.loads((base / "v1" / "train_params.json").read_text())
     assert params["parameter_values"] == {"model": "forecast_30d"}
     spec = json.loads((base / "v1" / "train_pipeline.json").read_text())

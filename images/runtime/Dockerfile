@@ -5,6 +5,10 @@
 # gcpbricks.mlflow and the feature store's engine whatever its own lock pins.
 FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1
+# Vertex mounts a GPU machine's driver at /usr/local/nvidia; without it on the loader path a
+# CUDA wheel finds no driver and torch quietly runs on the CPU. Absent on a CPU machine.
+ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/nvidia/lib \
+    PATH=/usr/local/nvidia/bin:$PATH
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml README.md /src/

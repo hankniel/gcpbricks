@@ -3,6 +3,8 @@ spec deploy last published: every step's component, how its inputs are wired, wh
 and, in a run, each step's actual inputs and outputs, artifacts, logs and compute."""
 from __future__ import annotations
 
+import re
+
 from gcpbricks.console import service as S
 from gcpbricks.console import stats as ST
 
@@ -91,7 +93,11 @@ def component(spec: dict, key: str) -> dict:
                                "accelerator": (res.get("accelerator") or {}).get("resourceType") or (res.get("accelerator") or {}).get("type"),
                                "accelerators": (res.get("accelerator") or {}).get("resourceCount") or (res.get("accelerator") or {}).get("count")}}
     elif "importer" in ex:
-        runs |= {"artifact_uri": _wiring(ex["importer"].get("artifactUri") or {}) or ex["importer"].get("artifactUri"),
+        # An importer's uri is a constant, or a runtimeParameter naming the step input that carries it.
+        uri = ex["importer"].get("artifactUri") or {}
+        param = uri.get("runtimeParameter")
+        runs |= {"artifact_uri": uri["constant"] if "constant" in uri
+                 else (_wiring(wired.get(param, {})) or f"input {param}") if param else "",
                  "type": (ex["importer"].get("typeSchema") or {}).get("schemaTitle")}
     return {"key": key, "label": (t.get("taskInfo") or {}).get("name") or key, "component": t["componentRef"]["name"],
             "description": comp.get("description") or "", "inputs": inputs, "outputs": outputs, "runs": runs,
@@ -131,7 +137,7 @@ def definition(gcp, workflow: str, task: str) -> dict:
             "parameters": [{"name": n, "type": d.get("parameterType"), "default": d.get("defaultValue"),
                             "value": values.get(n)}
                            for n, d in (((spec.get("root") or {}).get("inputDefinitions") or {}).get("parameters") or {}).items()],
-            **graph, "steps": {k: component(spec, k) for k in keys}}
+            **graph, "flow": S.pipeline_flow(graph, run=False), "steps": {k: component(spec, k) for k in keys}}
 
 
 def _job(gcp, workflow: str, execution_id: str, task: str) -> dict:
@@ -147,10 +153,33 @@ def _artifacts(side: dict | None) -> list[dict]:
             for name, v in (side or {}).items() for a in v.get("artifacts") or []]
 
 
+#: One iteration's step of a dsl.ParallelFor: `step[i]`, as Databricks names a for_each_task's iteration.
+_REF = re.compile(r"(.+)\[(\d+)\]")
+
+
+def base_key(ref: str) -> str:
+    """`step[i]` -> step."""
+    m = _REF.fullmatch(ref)
+    return m.group(1) if m else ref
+
+
 def _detail(job: dict, key: str, unstarted: bool = False) -> dict:
-    """A step's task detail. Vertex lists a step only once it starts: with `unstarted`, a step of
-    the run's spec not listed yet is one with no detail, in the state the run's graph gives it."""
-    d = next((t for t in (job.get("jobDetail") or {}).get("taskDetails", []) if t.get("taskName") == key), None)
+    """A step's task detail; `step[i]` names iteration i's of a step inside a dsl.ParallelFor.
+    Vertex lists a step only once it starts: with `unstarted`, a step of the run's spec not
+    listed yet is one with no detail, in the state the run's graph gives it."""
+    details = (job.get("jobDetail") or {}).get("taskDetails", [])
+    m = _REF.fullmatch(key)
+    if m:
+        its = S.loop_iterations(details)
+        it = next((i for its_ in its.values() for i in its_ if i["index"] == int(m.group(2)) and m.group(1) in i["steps"]), None)
+        if it is None:
+            raise KeyError(f"the pipeline run has no iteration {m.group(2)} of step {m.group(1)}")
+        return it["steps"][m.group(1)]
+    inside = S._in_iterations(details)
+    d = next((t for t in details if t.get("taskName") == key and t.get("taskId") not in inside), None)
+    if d is None and any(t.get("taskName") == key for t in details):
+        n = sum(1 for t in details if t.get("taskName") == key)
+        raise KeyError(f"{key} runs once per iteration of a loop ({n} so far): name one, {key}[0] .. {key}[{n - 1}]")
     if d is None and unstarted:
         d = next(({"state": n["state"]} for n in S.pipeline_graph(job)["nodes"] if n["key"] == key), None)
     if d is None:
@@ -175,10 +204,15 @@ def step(gcp, workflow: str, execution_id: str, task: str, key: str) -> dict:
                  "text": e.get("textPayload") or str((e.get("jsonPayload") or {}).get("message", ""))}
                 for e in gcp.log_entries(f'resource.type="ml_job" AND resource.labels.job_id="{main.rsplit("/", 1)[-1]}" '
                                          f'AND timestamp>="{a}" AND timestamp<="{b}"', n=1000)]
+    loop = S.loop_iterations((job.get("jobDetail") or {}).get("taskDetails", [])).get(key)
     return {"key": key, "state": d.get("state"), "start": d.get("startTime"), "end": d.get("endTime"),
+            # A dsl.ParallelFor's: its iterations, each step of one by step_ref (`step[i]`).
+            "iterations": [{"index": i["index"], "state": i["state"], "start": i["start"], "end": i["end"],
+                            "error": i["error"], "steps": sorted(f"{k}[{i['index']}]" for k in i["steps"])}
+                           for i in loop] if loop is not None else None,
             "cached": (d.get("execution") or {}).get("state") == "CACHED",
             "error": (d.get("error") or {}).get("message", ""),
-            "component": component(job.get("pipelineSpec") or {}, key) if (job.get("pipelineSpec") or {}).get("root") else None,
+            "component": component(job.get("pipelineSpec") or {}, base_key(key)) if (job.get("pipelineSpec") or {}).get("root") else None,
             "inputs": {k.removeprefix("input:"): v for k, v in meta.items() if k.startswith("input:")},
             "outputs": {k.removeprefix("output:"): v for k, v in meta.items() if k.startswith("output:")},
             "input_artifacts": _artifacts(d.get("inputs")), "output_artifacts": _artifacts(d.get("outputs")),

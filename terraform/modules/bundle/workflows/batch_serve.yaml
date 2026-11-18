@@ -36,6 +36,8 @@
 #                            gs://<bucket>/<progress_prefix>/<model run_id>/<model>/
 #   repair                   optional: {run_id, started_ms, models: {model: {from_date,
 #                            to_date, run_id}}, resume: [model], fresh: [model]}
+#   mlops_trace, mlops_task  optional (workflows/job.yaml): the run's trace and the task, set
+#                            as MLOPS_TRACE / MLOPS_TASK (gcpbricks.tracing)
 main:
   params: [args]
   steps:
@@ -251,6 +253,10 @@ serve_model:
                       value: ${default(map.get(m, "output"), "")}
                     - name: SERVE_BACKFILL
                       value: ${if(default(map.get(m, "backfill"), false), "true", "false")}
+                    - name: MLOPS_TRACE
+                      value: ${default(map.get(cfg, "mlops_trace"), "")}
+                    - name: MLOPS_TASK
+                      value: ${default(map.get(cfg, "mlops_task"), "")}
 
 # One model scored by a Vertex AI batch prediction job over BigQuery: input_table's rows in the
 # window, each given a _mlops_row id, go in; Vertex's output row carries that id beside its

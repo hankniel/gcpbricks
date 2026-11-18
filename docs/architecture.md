@@ -155,6 +155,31 @@ instead.
 A job declared only under one target's `resources` exists only there, so one job can go live
 before another: demo_model can train on prod and serve on dev from the same bundle.
 
+## Monitoring
+
+```mermaid
+flowchart LR
+  PRED[("predictions ⋈ labels<br/>(the project's view)")] --> REF
+  BASE[("baseline table")] --> REF
+  QM["resources.quality_monitors"] -- "deploy adds" --> REF["&lt;key&gt;-monitor job<br/>mlops-task monitor"]
+  REF -- "BigQuery SQL<br/>stage, then one transaction" --> PM[("&lt;table&gt;_profile_metrics")]
+  REF --> DM[("&lt;table&gt;_drift_metrics")]
+  PM --> UI["console Quality tab"]
+  DM --> UI
+  PM -- "anomaly_detection<br/>TimesFM or z-score" --> AN[("&lt;table&gt;_anomalies")]
+  AN --> UI
+```
+
+A quality monitor is Databricks' data profiling: deploy turns it into an ordinary job (its
+schedule, failure email, runs and `run_job_task` callers are a job's) whose one task generates
+SQL from the monitor and the table's schema. The scan, the profile rows and drift (JavaScript
+UDFs for the tests' statistics) all run in BigQuery; the task holds no metric row. A
+classifier's probability metrics (log loss, one-vs-one ROC AUC) and fairness (a true/false
+slice's groups compared per class) are computed in the same script from staged counts. After
+it, a monitor's `anomaly_detection` judges each watched metric's series per slice against its
+history (`anomalies.py`: BigQuery's `AI.DETECT_ANOMALIES`, or a z-score) into the anomalies
+table. The metric tables are the contract: the console reads them, and so can any BI tool.
+
 ## A change, end to end
 
 1. **MR.** CI validates `mlops.yaml` and renders the plan for each target, runs the
@@ -181,6 +206,7 @@ before another: demo_model can train on prod and serve on dev from the same bund
 | the bundle loader against Databricks' semantics: includes, target merges by key, variables, Quartz → cron, unsupported keys refused | `tests/test_bundle.py` |
 | a `dbt_task`'s runner and the files a deploy uploads; the wheel launcher | `tests/test_task_runner.py`, `tests/test_publish_and_cli.py` |
 | `trigger.yaml` and `watchdog.yaml` against what the bundle sends them; every alert against a state the Workflows log | `tests/test_workflows.py` |
+| quality monitors: Databricks' keys, the refresh job each becomes, the scan's SQL, a refresh's statements, and the drift UDFs against scipy; anomaly detection's series and the detector's SQL | `tests/test_monitors.py`, `tests/test_console_quality.py`, `tests/test_anomalies.py` |
 | ML resources: names per target, the size table, and deploy against a fake Vertex (create, redeploy before undeploy, aliases, orphans) | `tests/test_ml.py` |
 | dbt-models' declarations and the SDK | `tests/test_features.py`, and dbt-models' `feature-config-check` CI job |
 | Workflows' own limits: unique step names, expressions under 400 characters | `tests/test_workflows.py`, `tests/test_batch_serve.py` |

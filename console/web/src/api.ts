@@ -21,6 +21,8 @@ export type Job = {
 export type GraphNode = {
   /** What a node reads as, when not its key (a pipeline step's display name). */
   label?: string;
+  /** A pipeline decision's way in a run (PipelineStep.taken). */
+  taken?: "true" | "false" | null;
   key: string; type: string; kind: string; inner_kind: string | null; level: number; run_if: string; run_job?: string;
   workflow?: string; for_each: boolean; max_retries: number; detail: string; depends_on: string[];
   /** A pipeline step's enclosing condition (a KFP dsl.If / Else group): drawn inside it. */
@@ -51,10 +53,18 @@ export type JobDetail = Job & {
   tasks: Record<string, TaskSpec>;
 };
 /** A Vertex pipeline run's steps (a vertex_pipeline_task's run), as the GCP pipeline view draws them. */
-export type PipelineStep = { key: string; label: string; kind: "step" | "condition"; condition: string; state: string;
-  start: string | null; end: string | null; error: string; parent: string | null; level: number };
+/** One iteration of a dsl.ParallelFor (console.service.loop_iterations), as Databricks lists a for_each_task's. */
+export type Iteration = { index: number; state: string; start?: string | null; end?: string | null; error?: string };
+export type PipelineStep = { key: string; label: string; kind: "step" | "condition" | "decision" | "for_each"; condition: string; state: string;
+  start: string | null; end: string | null; error: string; parent: string | null; level: number;
+  /** A for_each's iterations; a step inside one, its state in each. */
+  iterations?: Iteration[];
+  /** A decision's way in a run: its True or False branch; null before it was evaluated. */
+  taken?: "true" | "false" | null };
+/** The steps as Databricks draws condition tasks (console.service.pipeline_flow): decisions with True / False edges. */
+export type PipelineFlow = { nodes: PipelineStep[]; edges: { from: string; to: string; outcome: string }[] };
 export type PipelineRun = { run: { name: string; id: string; state: string; start: string | null; end: string | null;
-  error: string; link: string } | null; nodes?: PipelineStep[]; edges?: { from: string; to: string }[] };
+  error: string; link: string } | null; nodes?: PipelineStep[]; edges?: { from: string; to: string }[]; flow?: PipelineFlow };
 export type Execution = { name: string; kind: "cloud_run" | "workflow"; input: string; start: string };
 export type TaskRun = {
   key: string; status: string | null; start: string | null; end: string | null; outcome?: string; error: string;
@@ -137,7 +147,7 @@ export type StepComponent = { key: string; label: string; component: string; des
     resources?: { cpu: string | null; memory: string | null; accelerator: string | null; accelerators: string | null } } };
 export type PipelineDefinition = { version: string; image: string; spec_uri: string; name: string; sdk: string;
   parameters: { name: string; type: string; default: unknown; value: unknown }[];
-  nodes: PipelineStep[]; edges: { from: string; to: string }[]; steps: Record<string, StepComponent> };
+  nodes: PipelineStep[]; edges: { from: string; to: string }[]; flow: PipelineFlow; steps: Record<string, StepComponent> };
 export type StepArtifact = { name: string; type: string; uri: string; metadata: Record<string, unknown>; resource: string; text: boolean };
 export type StepRun = { key: string; state: string; start: string | null; end: string | null; cached: boolean; error: string;
   component: StepComponent | null; inputs: Record<string, unknown>; outputs: Record<string, unknown>;
@@ -211,6 +221,23 @@ export type CostReport = { window: { start: string; end: string; days: number };
   totals: Partial<Record<CostSource | "all" | "notebooks_upper", number>>; items: CostItem[]; running: CostRunning[];
   errors: Partial<Record<CostSource, string>>; notes: string[]; price_source: string;
   prices: { sku: string; description: string; usd: number; unit: string }[] };
+/** Where BigQuery's cost comes from (console/cost_attribution.py). */
+export type CostScope = { kind: "project" | "user"; text: string };
+export type CostTop = { name: string; usd: number };
+export type BqOwner = { path: string[]; kind: "platform" | "dbt" | "user"; workflow: string | null; usd: number; tib: number;
+  jobs: number; slot_ms: number; tables: string[] };
+export type BqTableBuilt = { table: string; usd: number; tib: number; jobs: number; by: CostTop[] };
+export type BqTableRead = { table: string; jobs: number; jobs_usd: number; by: CostTop[] };
+export type BqReachedTable = { table: string; depth: number; usd: number; built?: boolean };
+export type BqModelCost = { model: string; name: string; version: string; roots: string[]; usd: number;
+  tables: BqReachedTable[]; unresolved: string[] };
+export type BqCostReport = { scope: CostScope; total_usd: number; no_table_usd: number; invocations_found: number;
+  owners: BqOwner[]; built: BqTableBuilt[]; read: BqTableRead[]; models: BqModelCost[]; models_error: string | null;
+  usd_per_tib: number; window: { start: string; end: string; days: number } };
+export type TableCost = { table: string; scope: CostScope;
+  build: { usd: number; tib: number; jobs: number; by_day: { day: string; usd: number }[]; by: CostTop[] } | null;
+  read: { jobs: number; jobs_usd: number; by: CostTop[] } | null;
+  upstream: BqReachedTable[]; upstream_usd: number; built_from: string[]; feeds: string[] };
 export type ModelVersion = { version: string; aliases: string[]; default: boolean; labels: Record<string, string>;
   created: string; updated: string; description: string; artifact_uri: string; image: string; source: string;
   schemata: { instanceSchemaUri?: string; parametersSchemaUri?: string; predictionSchemaUri?: string };
@@ -418,6 +445,78 @@ export const blogApi = {
     call<{ url: string }>(`/api/blog/posts/${slug}/images`, { method: "POST", headers: { "Content-Type": file.type }, body: file }),
 };
 
+/** A quality monitor as its bundle's deployment.json records it (bundle.quality_monitors). */
+export type QualityMonitor = {
+  bundle: string; target: string; key: string; table_name: string;
+  profile_type: "InferenceLog" | "TimeSeries" | "Snapshot";
+  profile_metrics_table: string; drift_metrics_table: string; baseline_table_name: string | null;
+  slicing_exprs: string[]; granularities: string[]; timestamp_col: string | null;
+  problem_type: "PROBLEM_TYPE_CLASSIFICATION" | "PROBLEM_TYPE_REGRESSION" | null;
+  prediction_col: string | null; label_col: string | null; model_id_col: string | null;
+  prediction_proba_col: string | null; custom_metrics: string[]; drift_custom_metrics?: string[];
+  anomalies_table?: string | null;
+  schedule: { quartz_cron_expression: string; timezone_id: string; pause_status?: string } | null;
+  job: string; workflow: string;
+  /** The monitor as declared (bundle keys); missing on a record from before it was kept. */
+  config?: Record<string, unknown>;
+  /** Set when the monitor profiles a view that reads this table, not the table itself: that view. */
+  via?: string;
+};
+/** A deleted monitor of the table whose metric tables are still there. */
+export type MonitorLeftover = { key: string; bundle: string; target: string; retired: string; tables: string[] };
+/** '' is NULL: all models, the whole table, a snapshot's granularity. */
+export type QualityPick = { granularity: string; model: string; slice_key: string; slice_value: string };
+/** A profile metrics row; BigQuery's numbers arrive as strings. */
+export type ProfileRow = {
+  start: string | null; log_type: "INPUT" | "BASELINE"; column_name: string; data_type: string | null;
+  count: string | null; num_nulls: string | null; percent_null: string | null; distinct_count: string | null;
+  percent_distinct: string | null; percent_zeros: string | null; avg: string | null; min: string | null;
+  median: string | null; max: string | null; stddev: string | null; top_items: { item: string; count: string }[] | null;
+  mean_squared_error: string | null; root_mean_squared_error: string | null; mean_average_error: string | null;
+  mean_absolute_percentage_error: string | null; r2_score: string | null; accuracy_score: string | null;
+  precision_macro: string | null; recall_macro: string | null; f1_macro: string | null;
+  confusion_matrix: { prediction: string; label: string; count: string }[] | null;
+  log_loss: string | null; roc_auc_weighted: string | null; roc_auc_macro: string | null;
+  /** Fairness: protected minus unprotected, per class, on a true/false slice's true rows. */
+  predictive_parity: { key: string; value: string | null }[] | null;
+  predictive_equality: { key: string; value: string | null }[] | null;
+  equal_opportunity: { key: string; value: string | null }[] | null;
+  statistical_parity: { key: string; value: string | null }[] | null;
+  [custom: string]: unknown;
+};
+export type DriftRow = {
+  start: string; drift_type: "CONSECUTIVE" | "BASELINE"; column_name: string; data_type: string | null;
+  count_delta: string | null; avg_delta: string | null; percent_null_delta: string | null;
+  ks_statistic: string | null; ks_pvalue: string | null; chi_squared_statistic: string | null;
+  chi_squared_pvalue: string | null; population_stability_index: string | null; js_distance: string | null;
+  wasserstein_distance: string | null; tv_distance: string | null; l_infinity_distance: string | null;
+  columns_added: string | null; columns_missing: string | null;
+  [custom: string]: unknown;
+};
+/** A judged point of a profile metric's series: its expected range and whether it is outside. */
+export type AnomalyRow = {
+  start: string; column_name: string; metric: string; value: string | null; lower_bound: string | null;
+  upper_bound: string | null; anomaly_probability: string | null; is_anomaly: boolean | string | null;
+  status: "Healthy" | "Unhealthy" | "Training" | "Error";
+};
+export type QualityMetrics = QualityPick & {
+  monitor: QualityMonitor; profile: ProfileRow[]; drift: DriftRow[]; anomalies?: AnomalyRow[]; billed_bytes: number;
+  /** false: set up but never refreshed, its metric tables not created yet. */
+  refreshed?: boolean;
+  options: { granularities: string[]; models: string[]; slices: { key: string; value: string }[] };
+};
+
+/** A slice's `:table` row in one window: rows and model quality (dashboard breakdown). */
+export type SliceRow = {
+  start: string; slice_key: string; slice_value: string; count: string | null;
+  [metric: string]: string | null;
+};
+/** One column's distribution in a window (or the baseline's): a number's quantiles, a category's top items. */
+export type ColumnDist = {
+  start: string | null; log_type: "INPUT" | "BASELINE"; data_type: string | null; count: string | null;
+  quantiles: (string | null)[] | null; frequent_items: { item: string; count: string }[] | null;
+};
+
 export const api = {
   dashboards: () => call<DashboardSummary[]>("/api/dashboards"),
   dashboard: (bundle: string, target: string, key: string) => call<DashboardDetail>(`/api/dashboards/${bundle}/${target}/${key}`),
@@ -436,6 +535,25 @@ export const api = {
   table: (ds: string, t: string, project?: string) => call<TableDetail>(`/api/catalog/${ds}/${t}${inProject(project)}`),
   preview: (ds: string, t: string, project?: string) => call<Sample>(`/api/catalog/${ds}/${t}/preview${inProject(project)}`),
   queryPreview: (ds: string, t: string, project?: string) => post<Sample>(`/api/catalog/${ds}/${t}/query${inProject(project)}`),
+  tableMonitors: (ds: string, t: string, project?: string) =>
+    call<QualityMonitor[]>(`/api/catalog/${ds}/${t}/quality${inProject(project)}`),
+  tableMonitorLeftovers: (ds: string, t: string, project?: string) =>
+    call<MonitorLeftover[]>(`/api/catalog/${ds}/${t}/quality/leftovers${inProject(project)}`),
+  quality: (m: { bundle: string; target: string; key: string }, pick: QualityPick) =>
+    call<QualityMetrics>(`/api/quality/${m.bundle}/${m.target}/${m.key}?${new URLSearchParams(pick)}`),
+  qualitySlices: (m: { bundle: string; target: string; key: string }, granularity: string, model: string) =>
+    call<{ rows: SliceRow[]; billed_bytes: number }>(
+      `/api/quality/${m.bundle}/${m.target}/${m.key}/slices?${new URLSearchParams({ granularity, model })}`),
+  qualityColumn: (m: { bundle: string; target: string; key: string }, column: string, pick: QualityPick) =>
+    call<{ column: string; rows: ColumnDist[] }>(
+      `/api/quality/${m.bundle}/${m.target}/${m.key}/column?${new URLSearchParams({ column, ...pick })}`),
+  consoleMonitorTargets: () => call<string[]>("/api/quality/console"),
+  deployMonitor: (target: string, key: string, monitor: Record<string, unknown>) =>
+    send<{ target: string; version: string; log: string; note?: string }>("PUT", `/api/quality/console/${target}/${key}`, { key, monitor }),
+  deleteMonitor: (target: string, key: string) =>
+    send<{ target: string; version: string }>("DELETE", `/api/quality/console/${target}/${key}`),
+  monitorYaml: (key: string, monitor: Record<string, unknown>) =>
+    post<{ key: string; yaml: string }>("/api/quality/yaml", { key, monitor }),
   lineage: (node: string) => call<Lineage>(`/api/lineage?node=${encodeURIComponent(node)}`),
   versionLineage: (id: string, version: string) => call<VersionLineage>(`/api/models/${id}/versions/${version}/lineage`),
   versionFeatures: (id: string, version: string) => call<VersionFeatures>(`/api/models/${id}/versions/${version}/features`),
@@ -445,6 +563,8 @@ export const api = {
   models: () => call<ModelSummary[]>("/api/models"),
   model: (id: string) => call<Model>(`/api/models/${id}`),
   costs: (days: number) => call<CostReport>(`/api/costs?days=${days}`),
+  costsBigquery: (days: number) => call<BqCostReport>(`/api/costs/bigquery?days=${days}`),
+  tableCost: (table: string, days: number) => call<TableCost>(`/api/costs/table?table=${encodeURIComponent(table)}&days=${days}`),
   setAlias: (id: string, alias: string, version: string | null) =>
     post<{ alias: string; version: string | null; from: string[] }>(`/api/models/${id}/aliases`, { alias, version }),
   endpoints: () => call<Endpoint[]>("/api/serving"),

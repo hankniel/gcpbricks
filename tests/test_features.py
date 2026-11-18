@@ -285,6 +285,26 @@ def test_write_parquet_writes_load_dfs_rows_in_row_groups(fs, tmp_path, monkeypa
     assert [f.metadata.row_group(i).num_rows for i in range(f.num_row_groups)] == [4, 3]
 
 
+def test_iter_batches_streams_load_dfs_rows_from_one_query(fs, monkeypatch):
+    ts = fs.create_training_set(fs.get_feature_view("fs_segment").spine(DAYS[0], DAYS[4], where="cost > 12"),
+                                ["fs_segment:cost", "lbl_segment:val_d30"], exclude_columns=["feature_timestamp"])
+    # The engine's own batches, as BigQuery's read streams give them, here of 4 rows.
+    monkeypatch.setattr(F, "ROW_GROUP_ROWS", 4)
+    queries = []
+    execute = fs._execute
+    monkeypatch.setattr(fs, "_execute", lambda q: queries.append(q) or execute(q))
+    batches = list(ts.iter_batches(float32=True))
+    assert [len(b) for b in batches] == [4, 3] and len(queries) == 1
+    assert all(b["cost"].dtype == "float32" for b in batches)
+
+    def rows(df):
+        return df.sort_values(["segment", "snapshot_date"], ignore_index=True)
+
+    pd.testing.assert_frame_equal(rows(pd.concat(batches)), rows(ts.load_df(float32=True)))
+    empty = fs.create_training_set(fs.get_feature_view("fs_segment").spine(where="cost < 0"), ["fs_segment:cost"])
+    assert list(empty.iter_batches()) == []
+
+
 def test_a_query_with_no_rows_writes_an_empty_file_with_its_columns(fs, tmp_path):
     pq = pytest.importorskip("pyarrow.parquet")
     ts = fs.create_training_set(fs.get_feature_view("fs_segment").spine(where="cost < 0"), ["fs_segment:cost"])
@@ -428,6 +448,12 @@ def _fake_bigquery(fs, monkeypatch, batches, schema):
         def delete_table(self, ref, not_found_ok=False):
             deleted.append(str(ref))
 
+        def extract_table(self, table, uri, job_config=None, location=None):
+            fs._extracts.append((table, uri, job_config.destination_format))
+            fs._on_extract()
+            return type("Job", (), {"result": lambda self: None})()
+
+    fs._extracts, fs._on_extract = [], lambda: None
     monkeypatch.setattr(F.job_labels, "bigquery_client", lambda **kw: Client())
     monkeypatch.setattr(bigquery_storage, "BigQueryReadClient", lambda: None)
     return sent
@@ -458,6 +484,118 @@ def test_on_bigquery_write_parquet_streams_the_query_in_row_groups(tmp_path, mon
     assert sorted(deleted) == sorted(tables)
     # A bounded number of read streams, so a large result's download holds a bounded memory.
     assert streams == [F.READ_STREAMS]
+
+
+def test_on_bigquery_write_parquet_to_a_gs_directory_exports_the_result_as_part_files(tmp_path, monkeypatch):
+    """As Databricks' load_df().write.parquet(dir): part files, each readable on its own, from
+    the query's own result table (no second query); a directory with files is refused."""
+    pa = pytest.importorskip("pyarrow")
+    pytest.importorskip("google.cloud.bigquery_storage")
+
+    fs = _bigquery_store(tmp_path)
+    batch = pa.record_batch({"segment": ["a"], "cost": pa.array([1.5], pa.float64())})
+    _fake_bigquery(fs, monkeypatch, [batch], batch.schema)
+    objects: dict[str, list[str]] = {"gs://b/train/": []}
+
+    def listed(project, directory):
+        assert project == fs.bigquery_project
+        return objects[directory]
+    monkeypatch.setattr(F, "_gcs_objects", listed)
+    ts = fs.create_training_set(fs.get_feature_view("fs_segment").spine(DAYS[0], DAYS[1]), ["fs_segment:cost"])
+    fs._on_extract = lambda: objects.update({"gs://b/train/": [
+        "gs://b/train/part-000000000001.parquet", "gs://b/train/part-000000000000.parquet"]})
+    assert ts.write_parquet("gs://b/train/") == ["gs://b/train/part-000000000000.parquet",
+                                                  "gs://b/train/part-000000000001.parquet"]
+    tables, deleted, _ = fs._bigquery_tables
+    assert fs._extracts == [(tables[0], "gs://b/train/part-*.parquet", "PARQUET")] and deleted == tables
+    with pytest.raises(FileExistsError):
+        ts.write_parquet("gs://b/train/")
+    with pytest.raises(ValueError, match="end it with /"):
+        ts.write_parquet("gs://b/other")
+    with pytest.raises(ValueError, match="float32"):
+        ts.write_parquet("gs://b/other/", float32=True)
+
+
+def test_write_parquet_to_a_gs_directory_needs_bigquery(fs):
+    ts = fs.create_training_set(_spine(), ["fs_segment:cost"])
+    with pytest.raises(ValueError, match="exports from BigQuery"):
+        ts.write_parquet("gs://b/train/")
+
+
+def test_read_parquet_reads_parts_as_load_df_does(tmp_path):
+    """BigQuery's export has float64 only and drops TIMESTAMP's UTC; read_parquet restores both."""
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+    import datetime as dt
+
+    parts = []
+    for i, rows in enumerate(([1.5, 2.5], [3.5])):
+        t = pa.table({"cost": pa.array(rows, pa.float64()),
+                      "ts": pa.array([dt.datetime(2026, 11, 1)] * len(rows), pa.timestamp("us")),
+                      "snapshot_date": pa.array([dt.date(2026, 11, 1)] * len(rows), pa.date32())})
+        parts.append(str(tmp_path / f"part-{i}.parquet"))
+        pq.write_table(t, parts[-1])
+    df = F.read_parquet(parts, float32=True)
+    assert len(df) == 3 and df["cost"].dtype == "float32"
+    assert str(df["ts"].dtype) == "datetime64[us, UTC]"
+    assert F.read_parquet(parts[1], columns=["cost"]).columns.tolist() == ["cost"]
+
+
+def _parts(directory, chunks):
+    """BigQuery-export-like part files (float64, naive TIMESTAMP) under `directory`, and a _SUCCESS marker."""
+    pa = pytest.importorskip("pyarrow")
+    pq = pytest.importorskip("pyarrow.parquet")
+    import datetime as dt
+
+    directory.mkdir()
+    for i, rows in enumerate(chunks):
+        pq.write_table(pa.table({"cost": pa.array(rows, pa.float64()),
+                                 "geo": pa.array(["VN", "US", "JP"][:len(rows)]),
+                                 "ts": pa.array([dt.datetime(2026, 11, 1)] * len(rows), pa.timestamp("us"))}),
+                       directory / f"part-{i:012d}.parquet")
+    (directory / "_SUCCESS").write_text("")
+    return directory
+
+
+def test_read_parquet_reads_a_directory_of_parts_in_name_order(tmp_path):
+    d = _parts(tmp_path / "train", ([1.5, 2.5], [3.5]))
+    df = F.read_parquet(f"{d}/", float32=True, categories=True)
+    assert df["cost"].tolist() == [1.5, 2.5, 3.5] and df["cost"].dtype == "float32"
+    assert isinstance(df["geo"].dtype, pd.CategoricalDtype)
+    assert str(df["ts"].dtype) == "datetime64[us, UTC]"
+    assert str(F.read_parquet(f"{d}/", utc=False)["ts"].dtype) == "datetime64[us]"
+    assert str(next(F.iter_parquet(f"{d}/", utc=False))["ts"].dtype) == "datetime64[us]"
+    assert F.parquet_schema(f"{d}/").names == ["cost", "geo", "ts"]
+    ds = pytest.importorskip("pyarrow.dataset")
+    assert F.read_parquet(f"{d}/", filter=ds.field("cost") > 2)["cost"].tolist() == [2.5, 3.5]
+
+
+def test_iter_parquet_streams_batches_and_an_empty_read_still_has_its_columns(tmp_path):
+    d = _parts(tmp_path / "train", ([1.5, 2.5], [3.5]))
+    batches = list(F.iter_parquet(f"{d}/", rows=1, columns=["cost"]))
+    assert [b["cost"].tolist() for b in batches] == [[1.5], [2.5], [3.5]]
+    empty = _parts(tmp_path / "empty", ([],))
+    (only,) = F.iter_parquet(f"{empty}/", float32=True)
+    assert only.empty and only.columns.tolist() == ["cost", "geo", "ts"] and only["cost"].dtype == "float32"
+
+
+def test_write_parquet_all_exports_every_set_at_once():
+    """Each set's write_parquet(directory) in flight together: a barrier every export must reach."""
+    import threading
+
+    barrier = threading.Barrier(3, timeout=10)
+
+    class Set:
+        def __init__(self, name):
+            self.name = name
+
+        def write_parquet(self, directory):
+            barrier.wait()
+            return [f"{directory}part-0.parquet"]
+
+    sets = {f"gs://b/{n}/": Set(n) for n in ("train", "val", "calibration")}
+    assert F.write_parquet_all(sets) == {d: [f"{d}part-0.parquet"] for d in sets}
+    assert F.write_parquet_all({}) == {}
 
 
 def test_on_spark_a_parquet_view_reads_as_a_path_and_a_table_takes_the_catalog(tmp_path, checkout):

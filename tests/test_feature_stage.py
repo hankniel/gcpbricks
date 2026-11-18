@@ -272,3 +272,89 @@ def _stage_frame(fs):
     bfv = fs.batch_feature_view("m", "fs_c", stage, at_days=AT)
     df = fs.create_training_set(fv.spine(), [bfv, fv[list(stage.python_columns)]]).load_df()
     return df.sort_values(["segment", "snapshot_date"], ignore_index=True)
+
+
+OVER_SPEC = {"aggregations": [
+    {"name": "c_rev_sum_3d", "source": "lng", "input": "rev", "function": "sum", "time_window": "3d",
+     "over": ["snapshot_date"]},
+    {"name": "c_rev_max_3d", "source": "lng", "input": "rev", "function": "max", "time_window": "3d",
+     "over": ["snapshot_date"]},
+    {"name": "c_sess_min_lifetime", "source": "lng", "input": "sess", "function": "min",
+     "time_window": "lifetime", "over": ["snapshot_date"]},
+    {"name": "c_rev_series", "source": "lng", "input": "rev", "function": "sum",
+     "time_window": {"series_start": "-3d", "window_size": "1d"}, "over": ["snapshot_date"], "keep": False},
+], "transforms": [{"name": "c_rev_series_slope", "formula": "row_slope(c_rev_series)"}]}
+
+
+def _over_frame(fs):
+    stage = compile_spec(OVER_SPEC).sql_stage()
+    fv = fs.get_feature_view("fs_c")
+    bfv = fs.batch_feature_view("m", "fs_c", stage, at_days=AT)
+    ts = fs.create_training_set(fv.spine(), [bfv])
+    return ts.load_df().sort_values(["segment", "snapshot_date"], ignore_index=True), stage.prefix
+
+
+def test_an_over_aggregation_folds_its_rows_per_timestamp_with_the_same_result(data, monkeypatch):
+    """`over` reads a segment's rows of every snapshot day, several on one timestamp: sum, min
+    and max fold them per timestamp before the range join, and give what the unfolded join
+    gives."""
+    import gcpbricks.features as F
+
+    fs, w, ln = data
+    folded, prefix = _over_frame(fs)
+    fs.derived.clear()
+    monkeypatch.setattr(F, "_PER_TIMESTAMP", ())
+    unfolded, _ = _over_frame(fs)
+    assert len(folded) == len(unfolded) == len(w)
+    assert list(folded.columns) == list(unfolded.columns)
+    for c in [c for c in folded if c.startswith(prefix)]:
+        np.testing.assert_allclose(folded[c].astype(float), unfolded[c].astype(float),
+                                   rtol=1e-12, equal_nan=True, err_msg=c)
+
+    # And by hand: the segment's rows of any snapshot day in [decision point - 3d, decision point).
+    ln = ln.assign(rev=ln.rev.astype(float), feature_timestamp=pd.to_datetime(ln.feature_timestamp))
+    for _, r in folded.iterrows():
+        end = pd.Timestamp(r.snapshot_date) + pd.Timedelta(days=AT + 1)
+        inside = ln[(ln.segment == r.segment) & (ln.feature_timestamp >= end - pd.Timedelta(days=3))
+                    & (ln.feature_timestamp < end)]
+        assert np.isclose(r[f"{prefix}c_rev_sum_3d"], inside.rev.sum(), rtol=1e-12), (r.segment, r.snapshot_date)
+
+
+def test_a_fold_leaves_count_and_mean_unfolded(tmp_path):
+    """count and mean of per-timestamp partials aren't the window's, so a source group with
+    either keeps the plain range join."""
+    fs, _, _ = _data(tmp_path)
+    spec = {"aggregations": [
+        {"name": "n", "source": "lng", "input": "rev", "function": "count", "time_window": "3d",
+         "over": ["snapshot_date"]},
+        {"name": "s", "source": "lng", "input": "rev", "function": "sum", "time_window": "3d",
+         "over": ["snapshot_date"]}]}
+    stage = compile_spec(spec).sql_stage()
+    fv = fs.get_feature_view("fs_c")
+    sql = fs.create_training_set(fv.spine(), [fs.batch_feature_view("m", "fs_c", stage, at_days=AT)]).to_sql()
+    assert sql.count("GROUP BY") == 1
+
+
+@pytest.mark.parametrize("spec", [SPEC, OVER_SPEC], ids=["windows", "over"])
+def test_windows_by_offset_give_what_timestamp_bounds_give(data, monkeypatch, spec):
+    """Each row's offset from its base, compared as integers, keeps exactly the rows the
+    timestamp bounds keep: every window, series column and lifetime the same."""
+    import gcpbricks.features as F
+
+    fs, w, _ = data
+    stage = compile_spec(spec).sql_stage()
+
+    def frame():
+        fs.derived.clear()
+        fv = fs.get_feature_view("fs_c")
+        bfv = fs.batch_feature_view("m", "fs_c", stage, at_days=AT)
+        return fs.create_training_set(fv.spine(), [bfv]).load_df().sort_values(
+            ["segment", "snapshot_date"], ignore_index=True)
+
+    by_offset = frame()
+    monkeypatch.setattr(F, "_OFFSETS", False)
+    by_bounds = frame()
+    assert list(by_offset.columns) == list(by_bounds.columns) and len(by_offset) == len(by_bounds) == len(w)
+    for c in [c for c in by_offset if c.startswith(stage.prefix)]:
+        np.testing.assert_allclose(by_offset[c].astype(float), by_bounds[c].astype(float),
+                                   rtol=1e-12, equal_nan=True, err_msg=c)

@@ -48,6 +48,8 @@ spec:
   image: python:3.11-slim
   variables:
     MLOPS_VERSION: $[[ inputs.platform_version ]]
+    # mlops prints its progress (Cloud Build waits, pipeline compiles) as it goes, not at exit.
+    PYTHONUNBUFFERED: "1"
   before_script:
     - SPEC=gcpbricks; [ "$MLOPS_VERSION" = latest ] || SPEC="gcpbricks==$MLOPS_VERSION"
     - pip install --quiet --index-url "$[[ inputs.pip_index ]]" --extra-index-url https://pypi.org/simple "$SPEC"

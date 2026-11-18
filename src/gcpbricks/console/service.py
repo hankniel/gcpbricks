@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 from gcpbricks import runs as R
+from gcpbricks import tracing
 from gcpbricks.bundle import WHEEL_LAUNCHER
 from gcpbricks.ml import RETIRED
 from gcpbricks.targets import storage_prefix
@@ -501,32 +502,106 @@ def _condition_text(cond: str) -> str:
     return re.sub(r"inputs\.parameter_values\['pipelinechannel--(?:[a-z0-9]+-)*?([a-z0-9_]+)'\]", r"\1", cond)
 
 
+_ITERATION = re.compile(r"(.+)-worker-(\d+)")
+#: A step's state across a loop's iterations: the first of these any iteration is in.
+_ACROSS = ("FAILED", "RUNNING", "CANCELLED", "QUEUED", "SUCCESS", "SKIPPED")
+
+
+def _step_state(d: dict) -> str:
+    """A task detail's state; a step Vertex skipped because its cache held the result counts
+    as succeeded, as in the run it came from."""
+    if (d.get("execution") or {}).get("state") == "CACHED":
+        return "SUCCESS"
+    return _STEP_STATE.get(d.get("state", ""), d.get("state") or "QUEUED")
+
+
+def loop_iterations(details: list[dict]) -> dict[str, list[dict]]:
+    """A dsl.ParallelFor's iterations, per loop task, as Databricks lists a for_each_task's:
+    {index, state, start, end, error, steps: {step: its task detail}}. Vertex lists iteration i
+    of loop L as task `L-worker-i` under L's own, and the iteration's steps under it."""
+    by_id = {t.get("taskId"): t for t in details}
+    kids: dict[str, list[dict]] = {}
+    for t in details:
+        kids.setdefault(t.get("parentTaskId"), []).append(t)
+    out: dict[str, list[dict]] = {}
+    for t in details:
+        m = _ITERATION.fullmatch(t.get("taskName", ""))
+        if not m or (by_id.get(t.get("parentTaskId")) or {}).get("taskName") != m.group(1):
+            continue
+        out.setdefault(m.group(1), []).append({
+            "index": int(m.group(2)), "state": _step_state(t), "start": t.get("startTime"), "end": t.get("endTime"),
+            "error": (t.get("error") or {}).get("message", ""),
+            "steps": {c["taskName"]: c for c in kids.get(t.get("taskId"), []) if "taskName" in c}})
+    for its in out.values():
+        its.sort(key=lambda i: i["index"])
+    return out
+
+
+def step_ref(detail: dict) -> str:
+    """A task detail's step as the console and CLI name it: `step[i]` for iteration i's of a
+    step inside a dsl.ParallelFor (Vertex's unique name holds `<loop>-worker-<i>`), else its name."""
+    m = re.search(r"-worker-(\d+)\.[^.]+$", detail.get("taskUniqueName") or "")
+    return f"{detail.get('taskName')}[{m.group(1)}]" if m else detail.get("taskName", "")
+
+
+def _in_iterations(details: list[dict]) -> set:
+    """taskIds of every iteration of a loop and what runs under it."""
+    by_parent: dict[str, list[dict]] = {}
+    for t in details:
+        by_parent.setdefault(t.get("parentTaskId"), []).append(t)
+    inside, todo = set(), [t for t in details if _ITERATION.fullmatch(t.get("taskName", ""))]
+    while todo:
+        t = todo.pop()
+        if t.get("taskId") not in inside:
+            inside.add(t.get("taskId"))
+            todo.extend(by_parent.get(t.get("taskId"), []))
+    return inside
+
+
 def pipeline_graph(job: dict) -> dict:
     """A Vertex pipeline run's steps as the GCP pipeline view draws them: every task of its
     spec, a condition's tasks after it, each with its state (a task under a condition that
-    didn't hold is SKIPPED), and a level for layout."""
+    didn't hold is SKIPPED), and a level for layout. A dsl.ParallelFor is a `for_each` node, as
+    Databricks draws a for_each_task, with its iterations; a step inside it gets its state
+    across them (failed if any failed) and each iteration's."""
     spec = job.get("pipelineSpec") or {}
     comps = spec.get("components", {})
-    details = {t["taskName"]: t for t in (job.get("jobDetail") or {}).get("taskDetails", []) if "taskName" in t}
+    all_details = (job.get("jobDetail") or {}).get("taskDetails", [])
+    inside = _in_iterations(all_details)
+    details = {t["taskName"]: t for t in all_details if "taskName" in t and t.get("taskId") not in inside}
+    loops = loop_iterations(all_details)
     nodes, edges = [], []
 
-    def walk(dag: dict, parent: str | None, skipped: bool) -> None:
+    def walk(dag: dict, parent: str | None, skipped: bool, loop: str | None = None) -> None:
         for key, t in (dag.get("tasks") or {}).items():
             sub = comps.get(t["componentRef"]["name"], {}).get("dag")
-            d = details.get(key) or {}
-            state = _STEP_STATE.get(d.get("state", ""), "SKIPPED" if skipped else "QUEUED")
+            is_loop = "parameterIterator" in t or "artifactIterator" in t
+            if loop is not None:
+                its = [{"index": i["index"], "state": _step_state(i["steps"][key]) if key in i["steps"] else i["state"]}
+                       for i in loops.get(loop, [])]
+                state = next((s for s in _ACROSS if any(i["state"] == s for i in its)),
+                             "SKIPPED" if skipped else "QUEUED")
+                d = {}
+            else:
+                d = details.get(key) or {}
+                state = _STEP_STATE.get(d.get("state", ""), "SKIPPED" if skipped else "QUEUED")
             cond = (t.get("triggerPolicy") or {}).get("condition", "")
-            nodes.append({"key": key, "label": (t.get("taskInfo") or {}).get("name") or key,
-                          "kind": "condition" if sub is not None else "step",
-                          "condition": _condition_text(cond), "state": state, "start": d.get("startTime"),
-                          "end": d.get("endTime"), "error": (d.get("error") or {}).get("message", ""),
-                          "parent": parent})
+            node = {"key": key, "label": (t.get("taskInfo") or {}).get("name") or key,
+                    "kind": "for_each" if is_loop else "condition" if sub is not None else "step",
+                    "condition": _condition_text(cond), "state": state, "start": d.get("startTime"),
+                    "end": d.get("endTime"), "error": (d.get("error") or {}).get("message", ""),
+                    "parent": parent}
+            if is_loop:
+                node["iterations"] = [{k: v for k, v in i.items() if k != "steps"} for i in loops.get(key, [])]
+            elif loop is not None:
+                node["iterations"] = its
+            nodes.append(node)
             deps = t.get("dependentTasks") or []
             edges.extend({"from": dep, "to": key} for dep in deps)
             if parent and not deps:
                 edges.append({"from": parent, "to": key})
             if sub is not None:
-                walk(sub, key, skipped or state == "SKIPPED")
+                walk(sub, key, skipped or state == "SKIPPED", key if is_loop else loop)
     walk((spec.get("root") or {}).get("dag") or {}, None, False)
     into: dict[str, list[str]] = {}
     for e in edges:
@@ -540,6 +615,143 @@ def pipeline_graph(job: dict) -> dict:
     for n in nodes:
         n["level"] = depth(n["key"])
     return {"nodes": nodes, "edges": edges}
+
+
+#: A step state that means it ran (or is running): its condition held.
+_RAN = {"SUCCESS", "FAILED", "RUNNING", "CANCELLED"}
+
+
+def _conjuncts(cond: str) -> list[str]:
+    """`a && !(b) && c` split at its top-level &&."""
+    out, depth, cur = [], 0, ""
+    i = 0
+    while i < len(cond):
+        ch = cond[i]
+        depth += ch == "("
+        depth -= ch == ")"
+        if depth == 0 and cond.startswith("&&", i):
+            out.append(cur.strip())
+            cur, i = "", i + 2
+            continue
+        cur += ch
+        i += 1
+    return [c for c in [*out, cur.strip()] if c]
+
+
+def pipeline_flow(graph: dict, run: bool = True) -> dict:
+    """A pipeline's steps as Databricks draws a job with condition tasks: no frames, each
+    dsl.If a decision node whose True edge leads to what it runs and whose False edge goes on.
+    A dsl.If / Elif / Else group is a chain of decisions, each with its own test (KFP writes an
+    Elif as `!(earlier) && own`; the Else is the last decision's False). A decision keeps its
+    condition task's key; in a run, `taken` says which way it went. Edges carry `outcome`
+    ("true", "false" or "") from a decision. `run`: False for a pipeline's definition, which
+    took no way yet."""
+    nodes = {n["key"]: n for n in graph["nodes"]}
+    kids: dict[str, list[str]] = {}
+    for n in graph["nodes"]:
+        kids.setdefault(n["parent"] or "", []).append(n["key"])
+    out_nodes: list[dict] = []
+    out_edges: list[dict] = []
+
+    def ran(key: str) -> bool:
+        return (nodes[key].get("state") or "") in _RAN
+
+    def decision(key: str, test: str, label: str, evaluated: bool) -> dict:
+        n = nodes[key]
+        taken = None if not evaluated else ("true" if ran(key) else "false")
+        d = {**n, "kind": "decision", "label": label, "condition": test, "taken": taken,
+             "state": "SUCCESS" if evaluated else n.get("state")}
+        out_nodes.append(d)
+        return d
+
+    def link(tails: list[tuple[str, str]], heads: list[str]) -> None:
+        for t, outcome in tails:
+            for h in heads:
+                out_edges.append({"from": t, "to": h, "outcome": outcome})
+
+    def block(container: str, evaluated: bool) -> tuple[list[str], list[tuple[str, str]]]:
+        """Lays out a container's children; returns (heads, tails) for whatever links to it."""
+        members = kids.get(container, [])
+        own = set(members)
+        parts: dict[str, tuple[list[str], list[tuple[str, str]]]] = {}
+
+        def upstream_ok(k: str) -> bool:
+            """A test runs once everything before it in its container succeeded (a cancelled
+            or failed step before it leaves it unevaluated)."""
+            def done(f: dict) -> bool:
+                # A condition upstream that didn't hold (SKIPPED) is done too.
+                ok = {"SUCCESS", "SKIPPED"} if f["kind"] == "condition" else {"SUCCESS"}
+                return (f.get("state") or "") in ok
+            return all(done(nodes[e["from"]]) for e in graph["edges"] if e["to"] == k and e["from"] in own)
+        for k in members:
+            n = nodes[k]
+            if n["kind"] != "condition":
+                out_nodes.append(n)
+                parts[k] = ([k], [(k, "")])
+            elif n["condition"] and container in nodes and not nodes[container]["condition"] \
+                    and nodes[container]["kind"] == "condition":
+                continue  # a branch of an If / Elif / Else group: its group lays it out
+            elif n["condition"]:
+                decision(k, n["condition"], "If", evaluated and upstream_ok(k))
+                heads, tails = block(k, ran(k))
+                link([(k, "true")], heads)
+                parts[k] = ([k], tails + ([(k, "false")] if heads else [(k, "true"), (k, "false")]))
+            else:
+                parts[k] = chain(k, evaluated and upstream_ok(k))
+        inner = [e for e in graph["edges"] if e["from"] in own and e["to"] in own]
+        for e in inner:
+            if e["from"] in parts and e["to"] in parts:
+                link(parts[e["from"]][1], parts[e["to"]][0])
+        has_in = {e["to"] for e in inner}
+        has_out = {e["from"] for e in inner}
+        heads = [h for k in members if k in parts and k not in has_in for h in parts[k][0]]
+        tails = [t for k in members if k in parts and k not in has_out for t in parts[k][1]]
+        return heads, tails
+
+    def chain(group: str, evaluated: bool) -> tuple[list[str], list[tuple[str, str]]]:
+        branches = sorted(kids.get(group, []), key=lambda k: int(re.sub(r"\D", "", k) or 0))
+        earlier: list[str] = []
+        heads: list[str] = []
+        tails: list[tuple[str, str]] = []
+        pending: list[tuple[str, str]] = []  # the previous decision's False
+        still = evaluated
+        for i, b in enumerate(branches):
+            own = [c for c in _conjuncts(nodes[b]["condition"])
+                   if not any(c.replace(" ", "") == f"!({p})".replace(" ", "") for p in earlier)]
+            test = " && ".join(own)
+            b_heads, b_tails = block(b, ran(b))
+            if test:
+                decision(b, test, "If" if i == 0 else "Else if", still)
+                if not heads:
+                    heads = [b]
+                link(pending, [b])
+                link([(b, "true")], b_heads)
+                tails += b_tails if b_heads else [(b, "true")]
+                pending = [(b, "false")]
+                still = still and not ran(b)
+                earlier.append(test)
+            else:  # the Else: what the last decision's False runs
+                if not heads:
+                    heads = b_heads
+                link(pending, b_heads)
+                tails += b_tails
+                pending = []
+        return heads, tails + pending
+
+    block("", run)
+    into: dict[str, list[str]] = {}
+    for e in out_edges:
+        into.setdefault(e["to"], []).append(e["from"])
+    level: dict[str, int] = {}
+
+    def depth(k: str) -> int:
+        if k not in level:
+            level[k] = 0
+            level[k] = 1 + max((depth(f) for f in into.get(k, [])), default=-1)
+        return level[k]
+    for n in out_nodes:
+        n["level"] = depth(n["key"])
+    return {"nodes": out_nodes, "edges": out_edges}
 
 
 def notebook_run(gcp, workflow: str, execution_id: str, task: str) -> dict:
@@ -591,7 +803,7 @@ def pipeline_run(gcp, workflow: str, execution_id: str, task: str) -> dict:
                     "start": job.get("startTime"), "end": job.get("endTime"),
                     "error": (job.get("error") or {}).get("message", ""),
                     "link": f"https://console.cloud.google.com/vertex-ai/pipelines/locations/{gcp.region}/runs/{run_id}?project={gcp.project}"},
-            **pipeline_graph(job)}
+            **(g := pipeline_graph(job)), "flow": pipeline_flow(g)}
 
 
 def _container_logs(gcp, executions: list[dict], since: str | None, n: int) -> list[dict]:
@@ -599,9 +811,15 @@ def _container_logs(gcp, executions: list[dict], since: str | None, n: int) -> l
     names = " OR ".join(f'"{s}"' for s in inputs)
     flt = (f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"=({names})'
            + _since(since))
+    return _container_lines(gcp.log_entries(flt, n), inputs)
+
+
+def _container_lines(entries: list[dict], inputs: dict[str, str]) -> list[dict]:
     out = []
-    for e in gcp.log_entries(flt, n):
+    for e in entries:
         payload = e.get("textPayload", e.get("jsonPayload"))
+        if isinstance(payload, dict) and isinstance(payload.get("message"), str):
+            payload = payload["message"]  # a line mlops-task traced (gcpbricks.tracing)
         if not payload or not str(payload).strip():
             continue
         text = payload if isinstance(payload, str) else json.dumps(payload, separators=(",", ":"))
@@ -609,6 +827,17 @@ def _container_logs(gcp, executions: list[dict], since: str | None, n: int) -> l
         out.append({"time": e.get("timestamp"), "severity": e.get("severity", "DEFAULT"),
                     "execution": short, "input": inputs.get(short, ""), "task": "", "text": text})
     return out
+
+
+def trace_filter(gcp, run_id: str, task: str) -> str:
+    """The containers' lines of one task of a run, wherever they ran (gcpbricks.tracing):
+    a runner's containers, which no log of the run names, included."""
+    return (f'resource.type="cloud_run_job" AND trace="{tracing.trace_name(gcp.project, run_id)}" '
+            f'AND labels.{tracing.TASK_LABEL}="{task}"')
+
+
+def _traced_logs(gcp, run_id: str, task: str, since: str | None, n: int) -> list[dict]:
+    return _container_lines(gcp.log_entries(trace_filter(gcp, run_id, task) + _since(since), n), {})
 
 
 def _workflow_logs(gcp, workflow: str, execution_id: str, since: str | None, n: int) -> list[dict]:
@@ -641,6 +870,7 @@ def task_logs(gcp, workflow: str, execution_id: str, task: str, n: int = 1000) -
         wf, child_id = _workflow_execution(x["name"])
         if _job_of(gcp.workflow(wf)) is None:
             out += [{**line, "input": x["input"]} for line in _workflow_logs(gcp, wf, child_id, since, n)]
+            out += [{**line, "input": x["input"]} for line in _traced_logs(gcp, detail["run_id"], task, since, n)]
             continue
         for key in execution_detail(gcp, wf, child_id)["task_runs"]:
             out += [{**line, "task": f"{key} / {line['task']}" if line["task"] else key,

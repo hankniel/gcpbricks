@@ -103,6 +103,9 @@ main:
           - run_labels["mlops_job"]: ${args.job}
           - run_labels["mlops_target"]: ${args.target}
           - run_labels["version"]: ${text.substring(current.version, 0, 63)}
+          # The bundle files its steps run (pipelines.use_bundle): a label, not the spec's env,
+          # so a repair after a deploy runs the new code yet keeps the cache of what succeeded.
+          - run_labels["mlops_bundle_version"]: ${text.substring(default(map.get(current, "bundle_version"), current.version), 0, 63)}
     - run_body:
         assign:
           # Vertex takes [a-z0-9-] only; a job's task_key may hold "_".

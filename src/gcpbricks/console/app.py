@@ -33,12 +33,15 @@ from gcpbricks.console import batch as B
 from gcpbricks.console import blog as BL
 from gcpbricks.console import bundles as BN
 from gcpbricks.console import catalog as C
+from gcpbricks.console import cost_attribution as CA
 from gcpbricks.console import costs as COSTS
 from gcpbricks.console import dashboards as D
 from gcpbricks.console import failure as F
 from gcpbricks.console import ml as M
+from gcpbricks.console import monitor_deploy as MD
 from gcpbricks.console import notebooks as NB
 from gcpbricks.console import pipeline_view as PV
+from gcpbricks.console import quality as Q
 from gcpbricks.console import runs as RUNS
 from gcpbricks.console import service as S
 from gcpbricks.console import stats as ST
@@ -334,6 +337,29 @@ def models(who: str = Depends(user)):
     return _call(M.models)
 
 
+def _attribution(days: int) -> dict:
+    if days not in (7, 30, 90):
+        raise HTTPException(400, "a cost window is 7, 30 or 90 days")
+    g = gcp()
+    loc = os.environ.get("MLOPS_BQ_LOCATION", "us-central1")
+    return CA.cached(g, days, loc, g._cached(f"bq-price:{loc}", 86400, lambda: CA.usd_per_tib(g, loc)))
+
+
+@app.get("/api/costs/bigquery")
+def costs_bigquery(days: int = 30, who: str = Depends(user)):
+    """Where the window's BigQuery cost comes from: by what ran it, by table built and read,
+    and each model's upstream data (console/cost_attribution.py); kept ten minutes."""
+    return _call(lambda g: CA.report(g, _attribution(days)))
+
+
+@app.get("/api/costs/table")
+def costs_table(table: str, days: int = 30, who: str = Depends(user)):
+    """One table's build and read cost and its upstream's, over the window."""
+    if table.count(".") != 2:
+        raise HTTPException(400, "table is project.dataset.table")
+    return _call(lambda g: CA.table(_attribution(days), table))
+
+
 @app.get("/api/costs")
 def costs(days: int = 30, who: str = Depends(user)):
     """What the platform's queries and compute cost over the last `days` days, and what runs
@@ -467,6 +493,70 @@ def preview(dataset: str, table: str, project: str | None = None, who: str = Dep
 @app.post("/api/catalog/{dataset}/{table}/query")
 def query_preview(dataset: str, table: str, project: str | None = None, who: str = Depends(user)):
     return _call(C.query_preview, who, dataset, table, project)
+
+
+@app.get("/api/catalog/{dataset}/{table}/quality")
+def table_monitors(dataset: str, table: str, project: str | None = None, who: str = Depends(user)):
+    return _call(Q.monitors, dataset, table, project)
+
+
+@app.get("/api/catalog/{dataset}/{table}/quality/leftovers")
+def table_monitor_leftovers(dataset: str, table: str, project: str | None = None, who: str = Depends(user)):
+    """Deleted monitors of the table whose metric tables are still there."""
+    return _call(Q.leftovers, dataset, table, project)
+
+
+@app.get("/api/quality/{bundle}/{target}/{key}")
+def quality_metrics(bundle: str, target: str, key: str, granularity: str = "", model: str = "",
+                    slice_key: str = "", slice_value: str = "", windows: int = Q.WINDOWS,
+                    who: str = Depends(user)):
+    return _call(Q.metrics, bundle, target, key, granularity, model, slice_key, slice_value, windows)
+
+
+@app.get("/api/quality/{bundle}/{target}/{key}/slices")
+def quality_slices(bundle: str, target: str, key: str, granularity: str = "", model: str = "",
+                   windows: int = Q.WINDOWS, who: str = Depends(user)):
+    return _call(Q.slices, bundle, target, key, granularity, model, windows)
+
+
+@app.get("/api/quality/{bundle}/{target}/{key}/column")
+def quality_column(bundle: str, target: str, key: str, column: str, granularity: str = "", model: str = "",
+                   slice_key: str = "", slice_value: str = "", windows: int = Q.WINDOWS,
+                   who: str = Depends(user)):
+    return _call(Q.column, bundle, target, key, column, granularity, model, slice_key, slice_value, windows)
+
+
+class MonitorBody(BaseModel):
+    key: str
+    monitor: dict
+
+
+@app.post("/api/quality/yaml")
+def quality_yaml(body: MonitorBody, who: str = Depends(user)):
+    return _call(lambda _g, k, m: Q.monitor_yaml(k, m), body.key, body.monitor)
+
+
+@app.get("/api/quality/console")
+def console_monitor_targets(who: str = Depends(user)):
+    return _call(MD.targets)
+
+
+def deploy_token(request: Request, who: str = Depends(user)) -> str | None:
+    """Whose credentials a console deploy uses, as gcp_as_user's writes: the user's own token,
+    an admin's none (the console's own account)."""
+    return None if is_admin(who) else notebook_token(request, who)
+
+
+@app.put("/api/quality/console/{target}/{key}")
+def console_monitor_upsert(target: str, key: str, body: MonitorBody, who: str = Depends(user),
+                           token: str | None = Depends(deploy_token)):
+    return _call(MD.upsert, who, target, key, body.monitor, token)
+
+
+@app.delete("/api/quality/console/{target}/{key}")
+def console_monitor_delete(target: str, key: str, who: str = Depends(user),
+                           token: str | None = Depends(deploy_token)):
+    return _call(MD.remove, who, target, key, token)
 
 
 @app.get("/api/lineage")

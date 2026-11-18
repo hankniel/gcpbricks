@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from gcpbricks import batch_serve as C
 from gcpbricks import bundle as B
+from gcpbricks import tracing
 
 MODULE = Path(__file__).resolve().parent.parent / "terraform" / "modules" / "bundle"
 WORKFLOW_TEXT = (MODULE / "workflows" / "batch_serve.yaml").read_text()
@@ -108,9 +109,9 @@ def test_a_removed_setting_says_what_replaces_it(removed):
 
 # --- the workflow -------------------------------------------------------------------------
 
-def test_the_score_step_sets_exactly_what_window_reads():
+def test_the_score_step_sets_exactly_what_window_reads_and_the_runs_trace():
     assert {e["name"] for e in _score_env()} == {*C.ENV, C.PROGRESS_ENV, C.RUN_DATE_ENV, C.OUTPUT_ENV,
-                                                C.BACKFILL_ENV}
+                                                C.BACKFILL_ENV, tracing.TRACE_ENV, tracing.TASK_ENV}
 
 
 def test_a_models_run_id_names_its_progress_so_a_fresh_rerun_skips_nothing():

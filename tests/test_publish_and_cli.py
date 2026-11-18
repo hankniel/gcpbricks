@@ -351,3 +351,46 @@ def test_logs_drop_the_executor_input_dump_and_the_runtimes_warnings():
                ("t7", "ERROR", "  warnings.warn(message, FutureWarning)"), ("t8", "INFO", "Job is running."),
                ("t9", "INFO", "[cell_hit_rate] n_segments=1335022  n=0  n_cells=0"), ("t10", "INFO", " ")]
     assert cli._quiet(entries) == [("t9", "INFO", "[cell_hit_rate] n_segments=1335022  n=0  n_cells=0")]
+
+
+def test_a_redeploy_repoints_a_published_pipeline_at_the_new_image(tmp_path):
+    """repoint: the spec's image swapped, under <version>_<tag>, current.json last; the earlier
+    version's files stay; nothing published, or already on the image, is left alone."""
+    import json
+
+    from gcpbricks.publish import publish, repoint
+
+    old, new = "r/proj-training:aaa111", "r/proj-training:bbb222"
+    build = tmp_path / "build"
+    build.mkdir()
+    spec = {"deploymentSpec": {"executors": {
+        "a": {"container": {"image": old}}, "b": {"container": {"image": "gcr.io/gcpc:2"}}}}}
+    (build / "train_pipeline.json").write_text(json.dumps(spec))
+    (build / "train_params.json").write_text('{"parameter_values": {"model": "m"}}')
+    out = tmp_path / "out"
+    publish(build, bucket="bk", base="p/x", version="v1", image=old, out_dir=out)
+
+    def read(obj):
+        path = out / obj
+        if not path.is_file():
+            raise FileNotFoundError(obj)
+        return path.read_bytes()
+
+    body = repoint(read, bucket="bk", base="p/x", version="v2", image=new, out_dir=out)
+    # The steps still read the files the spec was built with.
+    assert body["version"] == "v2_bbb222" and body["image"] == new and body["bundle_version"] == "v1"
+    current = json.loads((out / "p/x/current.json").read_text())
+    assert current == body
+    swapped = json.loads((out / "p/x/v2_bbb222/train_pipeline.json").read_text())
+    images = {e["container"]["image"] for e in swapped["deploymentSpec"]["executors"].values()}
+    assert images == {new, "gcr.io/gcpc:2"}
+    assert (out / "p/x/v2_bbb222/train_params.json").read_text() == '{"parameter_values": {"model": "m"}}'
+    assert json.loads((out / "p/x/v1/train_pipeline.json").read_text()) == spec
+    assert repoint(read, bucket="bk", base="p/x", version="v3", image=new, out_dir=out) is None
+    assert repoint(read, bucket="bk", base="p/none", version="v3", image=new, out_dir=out) is None
+    # A pointer from before bundle_version, already re-pointed once: the files version before the "_".
+    current = json.loads((out / "p/x/current.json").read_text())
+    del current["bundle_version"]
+    (out / "p/x/current.json").write_text(json.dumps(current))
+    assert repoint(read, bucket="bk", base="p/x", version="v4", image="r/proj-training:ccc333",
+                   out_dir=out)["bundle_version"] == "v2"

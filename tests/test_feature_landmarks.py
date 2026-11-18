@@ -149,6 +149,39 @@ def test_a_bounded_spine_reads_the_same(data):
                                    equal_nan=True, err_msg=c)
 
 
+def _stage_df(fs, spec):
+    plan = compile_spec(spec)
+    bfv = fs.batch_feature_view("m", "fs_c", plan.sql_stage())
+    return plan, fs.create_training_set(fs.get_feature_view("fs_c").spine(), [bfv]).load_df().sort_values(
+        KEY, ignore_index=True)
+
+
+def test_several_sources_aggregate_each_as_alone(data):
+    """Each source (x `over`) aggregates on the spine as it is before any of them: joined
+    together, every one's columns are what it computes alone, on every row the earliest
+    source's frontier keeps."""
+    fs, _, _ = data
+    groups = [SPEC["aggregations"][:2],
+              [{"name": "segment_rev_2d", "source": "lng", "input": "rev", "function": "sum",
+                "time_window": "2d", "over": ["age", "snapshot_date"]}],
+              [{"name": "cost_2d", "source": "fs_c", "input": "cost", "function": "sum",
+                "time_window": "2d", "over": ["snapshot_date"]}]]
+    spec = {**copy.deepcopy(SPEC), "aggregations": [a for g in groups for a in g], "transforms": []}
+    plan, together = _stage_df(fs, spec)
+    for g in groups:
+        own, alone = _stage_df(fs, {**copy.deepcopy(SPEC), "aggregations": g, "transforms": []})
+        # Each spec's columns carry its own hash prefix.
+        alone = alone.rename(columns={c: plan.sql_prefix + c.removeprefix(own.sql_prefix)
+                                      for c in alone.columns if c.startswith(own.sql_prefix)})
+        cols = [c for c in alone.columns if c.startswith(plan.sql_prefix)]
+        both = together[KEY + cols].merge(alone[KEY + cols], on=KEY, how="left", suffixes=("", "_alone"),
+                                          indicator=True)
+        assert cols and len(together) > 0 and (both._merge == "both").all()
+        for c in cols:
+            np.testing.assert_allclose(both[c].astype(float), both[c + "_alone"].astype(float), rtol=1e-12,
+                                       equal_nan=True, err_msg=c)
+
+
 def test_a_key_the_spine_lacks_needs_over(data):
     fs, _, _ = data
     spec = copy.deepcopy(SPEC)

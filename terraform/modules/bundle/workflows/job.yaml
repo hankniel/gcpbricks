@@ -614,6 +614,15 @@ run_cloud_run:
                       name: ${k}
                       value: ${task_env[k]}
                   - container.env: ${list.concat(container.env, entry)}
+    # gcpbricks.tracing: the run's trace and the task, on every line mlops-task prints.
+    - trace_env:
+        assign:
+          - trace_entries:
+              - name: MLOPS_TRACE
+                value: ${"projects/" + ctx.project + "/traces/" + text.replace_all(ctx.run_id, "-", "")}
+              - name: MLOPS_TASK
+                value: ${default(map.get(values, "task.name"), "")}
+          - container.env: ${list.concat(container.env, trace_entries)}
     # Started without waiting, so the execution's name is known (and logged) at once:
     # the console reads a task's logs and cancels it by that name.
     - start_job:
@@ -740,6 +749,15 @@ run_workflow:
               - merge_into:
                   assign:
                     - argument[task.options_into]: ${map.merge(default(map.get(argument, task.options_into), options), options)}
+    # A runner that starts containers (bundle._descriptor's `traced`) passes them the trace.
+    - trace_argument:
+        switch:
+          - condition: ${default(map.get(task, "traced"), false)}
+            steps:
+              - add_trace:
+                  assign:
+                    - argument.mlops_trace: ${"projects/" + ctx.project + "/traces/" + text.replace_all(ctx.run_id, "-", "")}
+                    - argument.mlops_task: ${default(map.get(values, "task.name"), "")}
     # Started without waiting, as a container is, so the child run's name is known (and
     # logged) at once: the console links the task to it, reads its logs and cancels it.
     - start_child:

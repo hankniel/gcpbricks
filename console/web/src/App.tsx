@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from "react";
 import { Global } from "@emotion/react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import QualityDashboardPage from "./pages/QualityDashboard";
 import {
   Avatar, BeakerIcon, BookIcon, FolderHomeIcon, NotebookIcon, Button, CatalogIcon, CloudModelIcon, DashboardIcon, DollarIcon, DropdownMenu, FolderIcon, Input, ListIcon, ModelsIcon, MoonIcon, SearchIcon,
   ParagraphSkeleton, SidebarIcon, SunIcon, TableIcon, TableModelIcon, Typography, WorkflowsIcon, useDesignSystemTheme,
@@ -187,7 +188,8 @@ export default function App() {
             <Route path="/blog/:slug/edit" element={<BlogEditorPage />} />
             <Route path="/batch-serving" element={<BatchServingPage />} />
             <Route path="/batch-serving/:wf/:task" element={<BatchServeTaskPage />} />
-            <Route path="/catalog" element={<CatalogLayout />}>
+            <Route path="/quality/:bundle/:target/:key" element={<QualityDashboardPage />} />
+          <Route path="/catalog" element={<CatalogLayout />}>
               <Route index element={<CatalogPage />} />
               <Route path=":dataset" element={<DatasetPage />} />
               <Route path=":dataset/:table" element={<TablePage />} />

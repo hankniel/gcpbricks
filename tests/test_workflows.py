@@ -96,7 +96,7 @@ def test_every_task_type_has_a_branch(lb):
 
 @pytest.mark.parametrize("kind, optional", [
     ("vertex_pipeline", {"overrides", "poll_seconds", "repair"}),  # repair: runs.repair_argument's
-    ("batch_serve", B.BATCH_SERVE_PARAMS | {"repair"}),  # repair: a repair run's (runs.repair_argument)
+    ("batch_serve", B.BATCH_SERVE_PARAMS | {"repair", "mlops_trace", "mlops_task"}),  # repair: runs.repair_argument; mlops_*: job.yaml
     ("notebook", {"parameters", "poll_seconds"}),
 ])
 def test_a_task_runner_reads_exactly_what_its_task_sends(lb, kind, optional):

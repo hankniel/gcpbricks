@@ -41,7 +41,8 @@ resource "google_cloud_run_v2_service" "console" {
     containers {
       image = var.image
       resources {
-        limits   = { cpu = "1", memory = "512Mi" }
+        # A console-created monitor's deploy runs terraform and a child deploy beside the server.
+        limits   = { cpu = "1", memory = "1Gi" }
         cpu_idle = true
       }
       dynamic "env" {

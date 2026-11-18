@@ -27,11 +27,13 @@ export function number(v: unknown): string {
 }
 
 /** A line or (grouped, or stacked) bar chart over categorical x, drawn as SVG like the console's other charts. */
-export default function Chart({ kind, xs, series, height = 220, stacked = false }: {
+export default function Chart({ kind, xs, series, height = 220, stacked = false, width = 640 }: {
   kind: "line" | "bar"; xs: string[]; series: Series[]; height?: number; stacked?: boolean;
+  /** The drawing's width: a wider one keeps text its size in a wide panel. */
+  width?: number;
 }) {
   const { theme } = useDesignSystemTheme();
-  const W = 640, H = height, L = 48, R = 12, T = 12, B = 36;
+  const W = width, H = height, L = 48, R = 12, T = 12, B = 36;
   const stack = kind === "bar" && stacked;
   // Stacked: each x's bars sit on the ones before them, so the scale is each x's sum.
   const ys = stack

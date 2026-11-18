@@ -15,6 +15,8 @@ Spark and DuckDB.
     ts = fs.create_training_set(fv.spine(start, end, where="cost > 0"),    # a view's rows
                                 ["lbl_demo__labels"], exclude_columns=["feature_timestamp"])
     ts.write_parquet(path)                                # streamed to a file, never all in memory
+    write_parquet_all({"gs://b/train/": ts, "gs://b/val/": val})   # exported by BigQuery, side by side
+    df = read_parquet("gs://b/train/"); iter_parquet("gs://b/train/", rows=100_000)   # file or parts
     ts.to_sql()                                           # the one query it runs
     svc.save(model_dir)                                   # what the model was trained on
     scored = fs.score_batch(model, events, FeatureService.load(model_dir))
@@ -38,6 +40,7 @@ import json
 import os
 import uuid
 from collections import Counter
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -256,17 +259,41 @@ class TrainingSet:
         float32's ~7 significant digits."""
         with self.store._execute(self._query()) as result:
             table = result.to_arrow()
-        if float32:
-            table = _float32(table)
-        # Frees each Arrow column as pandas takes it, so the result isn't held twice.
-        return table.to_pandas(self_destruct=True, split_blocks=True)
+        return _to_pandas(table, float32)
 
-    def write_parquet(self, path: str | Path, *, float32: bool = False) -> int:
-        """load_df()'s rows written to a local Parquet file, as Databricks'
-        load_df().write.parquet() does, never all in memory at once: the result streams to
-        the file batch by batch. Returns the rows written."""
+    def iter_batches(self, *, float32: bool = False, rows: int | None = None) -> Iterator[pd.DataFrame]:
+        """load_df()'s rows as DataFrames of about `rows` each (default ROW_GROUP_ROWS), as
+        Databricks' score_batch hands a model Arrow batches: one query, so every batch reads
+        the same version of the tables. On BigQuery only one batch is in memory at a time
+        (read streams); duckdb and Spark load the whole result, then batch it. A query with
+        no rows yields none."""
         import pyarrow as pa
 
+        rows = rows or ROW_GROUP_ROWS
+        with self.store._execute(self._query()) as result:
+            batches, n = [], 0
+            for batch in result.to_batches():
+                batches.append(batch)
+                n += batch.num_rows
+                if n >= rows:
+                    yield _to_pandas(pa.Table.from_batches(batches), float32)
+                    batches, n = [], 0
+            if n:
+                yield _to_pandas(pa.Table.from_batches(batches), float32)
+
+    def write_parquet(self, path: str | Path, *, float32: bool = False) -> int | list[str]:
+        """load_df()'s rows as Parquet, as Databricks' load_df().write.parquet(path).
+
+        A local file: the result streams to it batch by batch, never all in memory; returns
+        the rows written. A gs://.../ directory (BigQuery): the query's result table is
+        exported (an extract job, no second query) as part-*.parquet files, each readable on
+        its own so N jobs can each read a share; returns their URIs. As Databricks' default
+        mode, a directory already holding files is refused. BigQuery has no float32 and its
+        export drops TIMESTAMP's UTC: read the parts with read_parquet(files, float32=)."""
+        import pyarrow as pa
+
+        if str(path).startswith("gs://"):
+            return self._export_parquet(str(path), float32)
         with self.store._execute(self._query()) as result:
             writer, batches, rows = None, [], 0
             for batch in result.to_batches():
@@ -282,6 +309,22 @@ class TrainingSet:
                 writer = _write_row_group(None, path, result.to_arrow(), float32)
             writer.close()
         return rows
+
+    def _export_parquet(self, directory: str, float32: bool) -> list[str]:
+        if not directory.endswith("/"):
+            raise ValueError(f"{directory}: a gs:// path is a directory of part files, as Databricks' "
+                             "write.parquet(dir): end it with /")
+        if float32:
+            raise ValueError("BigQuery's export has no float32: read the files with read_parquet(files, float32=True)")
+        if self.store.engine != "bigquery":
+            raise ValueError(f"write_parquet to {directory} exports from BigQuery; on {self.store.engine} "
+                             "give a local file")
+        project = self.store.bigquery_project
+        if _gcs_objects(project, directory):
+            raise FileExistsError(f"{directory} already holds files: give an empty directory")
+        with self.store._execute(self._query()) as result:
+            result.extract(f"{directory}part-*.parquet")
+        return sorted(_gcs_objects(project, directory))
 
     def to_sql(self) -> str:
         """The query load_df() runs, in the engine's dialect (a DataFrame spine read as
@@ -596,11 +639,14 @@ class FeatureStore:
         by_source: dict[str, list] = {}
         for node in aggregated:
             by_source.setdefault((node.params["source"], tuple(sorted(node.params["over"]))), []).append(node)
-        frontiers = []
-        for (source, _), nodes in by_source.items():
-            table, frontier = self._aggregate(table, ts, self._group(source), nodes, sources,
-                                              window, points)
+        frontiers, parts = [], []
+        for s, ((source, _), nodes) in enumerate(by_source.items()):
+            part, frontier = self._aggregate(table, ts, self._group(source), nodes, sources,
+                                             window, points, s)
+            parts.append(part)
             frontiers.append(frontier)
+        if parts:
+            table = _join_aggregates(table, ts, parts)
         if lm and frontiers:
             # A decision day the data doesn't reach yet has no row; a horizon it doesn't
             # reach, no label. Each source's frontier is one row joined on, read once.
@@ -629,9 +675,10 @@ class FeatureStore:
         return ibis.table(ibis.schema({c: have.get(c, "float64") for c in keep}), name=name)
 
     def _aggregate(self, table, ts: str, g: FeatureGroup, nodes: list, sources: dict,
-                   window: tuple | None, landmarks: dict | None):
-        """table with each node's aggregation over g's rows of the row's entity (g's keys
-        the spine has; those it lacks, the node's `over`) in the node's windows, and g's
+                   window: tuple | None, landmarks: dict | None, s: int = 0):
+        """Each node's aggregation over g's rows of the spine row's entity (g's keys the spine
+        has; those it lacks, the node's `over`) in the node's windows, as an _Aggregates for
+        _join_aggregates (its key columns suffixed `s`, so several join on one spine), and g's
         frontier (its latest timestamp read). A feature window ends at the decision point
         (_dts), a label's at the horizon (_hts), both days included; an age window is days
         past the anchor (ts). An empty window: sum and count 0, the rest NULL."""
@@ -681,6 +728,12 @@ class FeatureStore:
                            **{f"_in{i}": ibis.ifelse(rows[f"_in{i}"].isnan(), ibis.null("float64"),
                                                      rows[f"_in{i}"]) for i in range(len(nodes))})
         frontier = rows.aggregate(_reach=rows._fts.max())
+        if all(n.params["function"] in _PER_TIMESTAMP for n in nodes):
+            # A window keeps or drops a row on its _fts alone, so these fold per (key, _fts)
+            # first: the range join below then pairs an event with one row per timestamp, not
+            # every row of it (a long view's segments x ages).
+            rows = rows.group_by([*[f"_k{i}" for i in range(len(keys))], "_fts"]).aggregate(
+                **{f"_in{i}": getattr(rows[f"_in{i}"], n.params["function"])() for i, n in enumerate(nodes)})
         points = [c for c in ("_dts", "_hts") if c in table.columns]
         events = table.select(*keys, ts, *points).distinct()
         cond = [events[k] == rows[f"_k{i}"] for i, k in enumerate(keys)]
@@ -695,26 +748,30 @@ class FeatureStore:
             base = next(iter(los))[0]
             cond.append(rows._fts >= _at(events, ts, base, min(d for _, d in los)))
         matched = events.join(rows, cond)
+        if _OFFSETS:
+            # Each base's offset is a column once, so every window over it is two integer
+            # comparisons, not two timestamp additions per aggregate (a series' many columns).
+            bases = {b[0] for bs in bounds.values() for pair in bs for b in pair if b is not None}
+            if any(n.params.get("since_decision") for n in nodes):
+                bases.add("decision")
+            matched = matched.mutate(**{f"_off_{b}": matched._fts.delta(
+                matched[_BASE_COLUMN.get(b, ts)], unit="microsecond") for b in sorted(bases)})
 
         aggs, function_of = {}, {}
         for i, node in enumerate(nodes):
             x = matched[f"_in{i}"]
             for j, (lo_b, hi_b) in enumerate(bounds[node.name]):
-                inside = matched._fts < _at(matched, ts, *hi_b)
+                inside = _before(matched, ts, hi_b)
                 if lo_b is not None:
-                    inside = inside & (matched._fts >= _at(matched, ts, *lo_b))
+                    inside = inside & ~_before(matched, ts, lo_b)
                 if node.params.get("since_decision"):
-                    inside = inside & (matched._fts >= matched._dts)
+                    inside = inside & ~_before(matched, ts, ("decision", 0))
                 col = node.params["sql_column"] + ("" if node.shape == "vector" else f"__{j}")
                 aggs[col] = _aggregation(node.params["function"], x, matched._fts, inside)
                 function_of[col] = node.params["function"]
-        agg = matched.group_by(**{f"_a{i}": matched[k] for i, k in enumerate(keys)}, _ats=matched[ts],
-                               **{f"_p{c}": matched[c] for c in points}).aggregate(**aggs)
-        joined = table.left_join(agg, [table[k] == agg[f"_a{i}"] for i, k in enumerate(keys)]
-                                 + [table[ts] == agg._ats] + [table[c] == agg[f"_p{c}"] for c in points])
-        return joined.select(*table.columns, **{
-            c: ibis.coalesce(joined[c], 0.0) if function_of[c] in ("sum", "count") else joined[c]
-            for c in aggs}), frontier
+        on = {**{k: f"_a{s}_{i}" for i, k in enumerate(keys)}, ts: f"_ats{s}", **{c: f"_p{s}{c}" for c in points}}
+        agg = matched.group_by(**{a: matched[c] for c, a in on.items()}).aggregate(**aggs)
+        return _Aggregates(agg, on, function_of), frontier
 
     def _compile(self, q: _Query, names: dict[str, str] | None = None) -> str:
         """q's SQL in the engine's dialect, each source table swapped for a subquery over
@@ -745,7 +802,7 @@ class FeatureStore:
                        else self._quote(names.get(t.name, t.name)))
                 sub = sqlglot.parse_one(f"SELECT * FROM {frm}" + (f" WHERE ({where})" if where else ""),
                                         read=dialect)
-            t.replace(sub.subquery(t.alias or t.name))
+            t.replace(sub.subquery(t.alias or t.name, copy=False))
         return tree
 
     def _from(self, g: FeatureGroup) -> str:
@@ -824,7 +881,7 @@ class FeatureStore:
             table = client.get_table(out)
             table.expires = datetime.now(UTC) + timedelta(hours=6)
             client.update_table(table, ["expires"])
-            yield _BigQueryResult(job)
+            yield _BigQueryResult(job, client, out)
         finally:
             client.delete_table(out, not_found_ok=True)
             if scratch:
@@ -899,8 +956,15 @@ class _Result:
 
 
 class _BigQueryResult:
-    def __init__(self, job):
-        self.job = job
+    def __init__(self, job, client=None, table: str | None = None):
+        self.job, self.client, self.table = job, client, table
+
+    def extract(self, uri: str) -> None:
+        """The result table exported as Parquet to `uri` (a wildcard: one file per shard)."""
+        from google.cloud import bigquery
+
+        self.client.extract_table(self.table, uri, job_config=bigquery.ExtractJobConfig(destination_format="PARQUET"),
+                                  location=getattr(self.job, "location", None)).result()
 
     def to_arrow(self):
         return self.job.result().to_arrow(create_bqstorage_client=True)
@@ -941,10 +1005,25 @@ def _windows(node, landmarks: dict) -> list[tuple[tuple[str, int] | None, tuple[
     return [((point, stop - S._days(window["window_size"])), (point, stop))]
 
 
+#: A window base's column; "anchor" is the spine's own timestamp.
+_BASE_COLUMN = {"decision": "_dts", "horizon": "_hts"}
+#: Windows compare each row's precomputed offset from its base (tests turn it off to compare).
+_OFFSETS = True
+_DAY_US = 86_400_000_000
+
+
 def _at(t, ts: str, base: str, days: int):
     import ibis
 
-    return t[{"anchor": ts, "decision": "_dts", "horizon": "_hts"}[base]] + ibis.interval(days=days)
+    return t[_BASE_COLUMN.get(base, ts)] + ibis.interval(days=days)
+
+
+def _before(matched, ts: str, bound: tuple[str, int]):
+    """Whether a matched row's _fts is before `bound` (base, days past it)."""
+    base, days = bound
+    if _OFFSETS:
+        return matched[f"_off_{base}"] < days * _DAY_US
+    return matched._fts < _at(matched, ts, base, days)
 
 
 def _base_days(base: str, landmarks: dict | None, latest: bool) -> int:
@@ -953,6 +1032,34 @@ def _base_days(base: str, landmarks: dict | None, latest: bool) -> int:
         return 0
     days = (landmarks or {}).get("horizons" if base == "horizon" else "at") or [0]
     return (max(days) if latest else min(days)) + 1
+
+
+@dataclass(frozen=True)
+class _Aggregates:
+    """One source's aggregations, a row per spine entity x timestamp (x decision point): `on`
+    maps each spine column it joins on to its own, `function_of` each aggregate to its function."""
+
+    table: object
+    on: dict
+    function_of: dict
+
+
+def _join_aggregates(table, ts: str, parts: list[_Aggregates]):
+    """table with every source's aggregates left-joined on, in one join chain and one select:
+    each grouped by exactly its join columns, so a spine row matches at most one row of each.
+    An empty window's sum and count are 0, the rest NULL."""
+    import ibis
+
+    joined = table
+    for p in parts:
+        joined = joined.left_join(p.table, [table[c] == p.table[a] for c, a in p.on.items()])
+    return joined.select(*table.columns, **{
+        c: ibis.coalesce(joined[c], 0.0) if f in ("sum", "count") else joined[c]
+        for p in parts for c, f in p.function_of.items()})
+
+
+#: The aggregations whose value over a window equals theirs over per-timestamp partials.
+_PER_TIMESTAMP = ("sum", "min", "max")
 
 
 def _aggregation(function: str, x, ts, where):
@@ -1020,6 +1127,109 @@ def _float32(table):
 
     return table.cast(pa.schema([f.with_type(pa.float32()) if pa.types.is_float64(f.type) else f
                                  for f in table.schema]))
+
+
+def read_parquet(paths: list[str] | str, *, float32: bool = False, columns: list[str] | None = None,
+                 categories: bool = False, filter=None, utc: bool = True) -> pd.DataFrame:
+    """Parquet as load_df() returns it, as Databricks' spark.read.parquet(path): one file, a
+    directory of TrainingSet.write_parquet's parts (local or gs://), or a list of them. float32
+    as asked; utc: a naive TIMESTAMP read as UTC, the zone BigQuery's export leaves off (False
+    reads it as stored, for files pandas wrote); categories: string
+    columns as pandas categoricals (dictionary-read, a fraction of an object column's memory);
+    filter: a pyarrow.dataset expression, applied batch by batch so the rows it drops are never
+    held, as spark.read.parquet(path).filter(...)."""
+    table = _parquet_dataset(paths, categories).to_table(columns=columns, filter=filter)
+    if categories:
+        # One dictionary per column, whatever each file and batch carried.
+        table = table.unify_dictionaries()
+    df = _to_pandas(_timestamps_utc(table) if utc else table, float32)
+    _release_arrow_memory()
+    return df
+
+
+def iter_parquet(paths: list[str] | str, *, rows: int | None = None, float32: bool = False,
+                 columns: list[str] | None = None, categories: bool = False,
+                 utc: bool = True) -> Iterator[pd.DataFrame]:
+    """read_parquet()'s rows as DataFrames of up to `rows` each (default ROW_GROUP_ROWS), in file
+    order, streamed: a gs:// file is never downloaded whole. One empty frame with the columns
+    when there are no rows."""
+    import pyarrow as pa
+
+    data = _parquet_dataset(paths, categories)
+    empty = True
+    for batch in data.to_batches(columns=columns, batch_size=rows or ROW_GROUP_ROWS):
+        if batch.num_rows:
+            empty = False
+            table = pa.Table.from_batches([batch])
+            yield _to_pandas(_timestamps_utc(table) if utc else table, float32)
+    if empty:
+        names = columns or data.schema.names
+        table = data.schema.empty_table().select(names)
+        yield _to_pandas(_timestamps_utc(table) if utc else table, float32)
+
+
+def parquet_schema(paths: list[str] | str):
+    """The Arrow schema of read_parquet(paths), from the files' footers: no rows read."""
+    return _parquet_dataset(paths, False).schema
+
+
+def write_parquet_all(sets: dict[str, TrainingSet]) -> dict[str, list[str]]:
+    """{gs:// directory: training set}, each exported as write_parquet(directory) does, all at once:
+    every query and export runs on BigQuery side by side, so this takes the longest of them, not
+    their sum. {directory: its part files}."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    if not sets:
+        return {}
+    with ThreadPoolExecutor(max_workers=len(sets)) as pool:
+        futures = {d: pool.submit(ts.write_parquet, d) for d, ts in sets.items()}
+        return {d: f.result() for d, f in futures.items()}
+
+
+def _parquet_dataset(paths: list[str] | str, categories: bool):
+    """A pyarrow dataset over a file, a directory (its parts in name order; `_`/`.` files such as a
+    _SUCCESS marker skipped) or a list of files, local or gs://."""
+    import pyarrow as pa
+    import pyarrow.dataset as ds
+
+    source = [str(p) for p in paths] if isinstance(paths, list) else str(paths)
+    fmt = ds.ParquetFileFormat()
+    if categories:
+        schema = ds.dataset(source, format=fmt).schema
+        strings = [f.name for f in schema if pa.types.is_string(f.type) or pa.types.is_large_string(f.type)]
+        fmt = ds.ParquetFileFormat(read_options=ds.ParquetReadOptions(dictionary_columns=strings))
+    return ds.dataset(source, format=fmt)
+
+
+def _timestamps_utc(table):
+    """Every naive TIMESTAMP column as UTC, as BigQuery returns it (its export drops the zone)."""
+    import pyarrow as pa
+
+    return table.cast(pa.schema([f.with_type(pa.timestamp(f.type.unit, "UTC"))
+                                 if pa.types.is_timestamp(f.type) and f.type.tz is None else f
+                                 for f in table.schema]))
+
+
+def _release_arrow_memory() -> None:
+    """Hands the Arrow pool's freed buffers back to the OS, which it otherwise keeps."""
+    import pyarrow as pa
+
+    pa.default_memory_pool().release_unused()
+
+
+def _gcs_objects(project: str, directory: str) -> list[str]:
+    """gs:// URIs of the objects under a gs://bucket/prefix/ directory."""
+    from google.cloud import storage
+
+    bucket, prefix = directory.removeprefix("gs://").split("/", 1)
+    return [f"gs://{bucket}/{b.name}" for b in storage.Client(project=project).list_blobs(bucket, prefix=prefix)]
+
+
+def _to_pandas(table, float32: bool) -> pd.DataFrame:
+    if float32:
+        table = _float32(table)
+    # Frees each Arrow column as pandas takes it, so the result isn't held twice.
+    return table.to_pandas(self_destruct=True, split_blocks=True)
 
 
 # --- deprecated: demo_model's main reads through these until it moves to the above -----------

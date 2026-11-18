@@ -1,0 +1,374 @@
+{
+ "nodes": [
+  {
+   "key": "condition-1",
+   "label": "condition-1",
+   "kind": "condition",
+   "condition": "retrain_needed == true",
+   "parent": null
+  },
+  {
+   "key": "condition-10",
+   "label": "condition-10",
+   "kind": "condition",
+   "condition": "promote == true",
+   "parent": "condition-1"
+  },
+  {
+   "key": "promote-op",
+   "label": "promote",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-10"
+  },
+  {
+   "key": "condition-branches-2",
+   "label": "condition-branches-2",
+   "kind": "condition",
+   "condition": "",
+   "parent": "condition-1"
+  },
+  {
+   "key": "condition-8",
+   "label": "condition-8",
+   "kind": "condition",
+   "condition": "train_needed == true",
+   "parent": "condition-branches-2"
+  },
+  {
+   "key": "condition-branches-3",
+   "label": "condition-branches-3",
+   "kind": "condition",
+   "condition": "",
+   "parent": "condition-8"
+  },
+  {
+   "key": "condition-4",
+   "label": "condition-4",
+   "kind": "condition",
+   "condition": "train_mode == 'parts_intervals'",
+   "parent": "condition-branches-3"
+  },
+  {
+   "key": "custom-training-job",
+   "label": "featurize",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-4"
+  },
+  {
+   "key": "custom-training-job-2",
+   "label": "fit-cpu",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-4"
+  },
+  {
+   "key": "custom-training-job-3",
+   "label": "fit-gpu",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-4"
+  },
+  {
+   "key": "custom-training-job-4",
+   "label": "assemble",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-4"
+  },
+  {
+   "key": "custom-training-job-5",
+   "label": "intervals",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-4"
+  },
+  {
+   "key": "importer",
+   "label": "import_trained_model",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-4"
+  },
+  {
+   "key": "condition-5",
+   "label": "condition-5",
+   "kind": "condition",
+   "condition": "!(train_mode == 'parts_intervals') && train_mode == 'parts'",
+   "parent": "condition-branches-3"
+  },
+  {
+   "key": "custom-training-job-6",
+   "label": "featurize",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-5"
+  },
+  {
+   "key": "custom-training-job-7",
+   "label": "fit-cpu",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-5"
+  },
+  {
+   "key": "custom-training-job-8",
+   "label": "fit-gpu",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-5"
+  },
+  {
+   "key": "custom-training-job-9",
+   "label": "assemble",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-5"
+  },
+  {
+   "key": "importer-2",
+   "label": "import_trained_model",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-5"
+  },
+  {
+   "key": "condition-6",
+   "label": "condition-6",
+   "kind": "condition",
+   "condition": "!(train_mode == 'parts_intervals') && !(train_mode == 'parts') && train_mode == 'one_intervals'",
+   "parent": "condition-branches-3"
+  },
+  {
+   "key": "custom-training-job-10",
+   "label": "train",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-6"
+  },
+  {
+   "key": "custom-training-job-11",
+   "label": "intervals",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-6"
+  },
+  {
+   "key": "importer-3",
+   "label": "import_trained_model",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-6"
+  },
+  {
+   "key": "condition-7",
+   "label": "condition-7",
+   "kind": "condition",
+   "condition": "!(train_mode == 'parts_intervals') && !(train_mode == 'parts') && !(train_mode == 'one_intervals')",
+   "parent": "condition-branches-3"
+  },
+  {
+   "key": "custom-training-job-12",
+   "label": "train",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-7"
+  },
+  {
+   "key": "importer-4",
+   "label": "import_trained_model",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-7"
+  },
+  {
+   "key": "importer-5",
+   "label": "import_parent_model",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-8"
+  },
+  {
+   "key": "model-upload",
+   "label": "register",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-8"
+  },
+  {
+   "key": "condition-9",
+   "label": "condition-9",
+   "kind": "condition",
+   "condition": "!(train_needed == true)",
+   "parent": "condition-branches-2"
+  },
+  {
+   "key": "importer-6",
+   "label": "import_registered_model",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-9"
+  },
+  {
+   "key": "gate-op",
+   "label": "gate",
+   "kind": "step",
+   "condition": "",
+   "parent": "condition-1"
+  },
+  {
+   "key": "prepare-op",
+   "label": "prepare",
+   "kind": "step",
+   "condition": "",
+   "parent": null
+  }
+ ],
+ "edges": [
+  {
+   "from": "prepare-op",
+   "to": "condition-1"
+  },
+  {
+   "from": "gate-op",
+   "to": "condition-10"
+  },
+  {
+   "from": "condition-10",
+   "to": "promote-op"
+  },
+  {
+   "from": "condition-1",
+   "to": "condition-branches-2"
+  },
+  {
+   "from": "condition-branches-2",
+   "to": "condition-8"
+  },
+  {
+   "from": "condition-8",
+   "to": "condition-branches-3"
+  },
+  {
+   "from": "condition-branches-3",
+   "to": "condition-4"
+  },
+  {
+   "from": "condition-4",
+   "to": "custom-training-job"
+  },
+  {
+   "from": "custom-training-job",
+   "to": "custom-training-job-2"
+  },
+  {
+   "from": "custom-training-job",
+   "to": "custom-training-job-3"
+  },
+  {
+   "from": "custom-training-job-2",
+   "to": "custom-training-job-4"
+  },
+  {
+   "from": "custom-training-job-3",
+   "to": "custom-training-job-4"
+  },
+  {
+   "from": "condition-4",
+   "to": "custom-training-job-5"
+  },
+  {
+   "from": "custom-training-job-4",
+   "to": "importer"
+  },
+  {
+   "from": "custom-training-job-5",
+   "to": "importer"
+  },
+  {
+   "from": "condition-branches-3",
+   "to": "condition-5"
+  },
+  {
+   "from": "condition-5",
+   "to": "custom-training-job-6"
+  },
+  {
+   "from": "custom-training-job-6",
+   "to": "custom-training-job-7"
+  },
+  {
+   "from": "custom-training-job-6",
+   "to": "custom-training-job-8"
+  },
+  {
+   "from": "custom-training-job-7",
+   "to": "custom-training-job-9"
+  },
+  {
+   "from": "custom-training-job-8",
+   "to": "custom-training-job-9"
+  },
+  {
+   "from": "custom-training-job-9",
+   "to": "importer-2"
+  },
+  {
+   "from": "condition-branches-3",
+   "to": "condition-6"
+  },
+  {
+   "from": "condition-6",
+   "to": "custom-training-job-10"
+  },
+  {
+   "from": "condition-6",
+   "to": "custom-training-job-11"
+  },
+  {
+   "from": "custom-training-job-10",
+   "to": "importer-3"
+  },
+  {
+   "from": "custom-training-job-11",
+   "to": "importer-3"
+  },
+  {
+   "from": "condition-branches-3",
+   "to": "condition-7"
+  },
+  {
+   "from": "condition-7",
+   "to": "custom-training-job-12"
+  },
+  {
+   "from": "custom-training-job-12",
+   "to": "importer-4"
+  },
+  {
+   "from": "condition-8",
+   "to": "importer-5"
+  },
+  {
+   "from": "condition-branches-3",
+   "to": "model-upload"
+  },
+  {
+   "from": "importer-5",
+   "to": "model-upload"
+  },
+  {
+   "from": "condition-branches-2",
+   "to": "condition-9"
+  },
+  {
+   "from": "condition-9",
+   "to": "importer-6"
+  },
+  {
+   "from": "condition-branches-2",
+   "to": "gate-op"
+  }
+ ]
+}

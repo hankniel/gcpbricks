@@ -27,6 +27,7 @@
                                              what the task (or one pipeline step) printed,
                                              without the runtime's noise unless --raw
                                              (why/task/logs read GCP as you, no console/IAP)
+  mlops bundle cancel JOB --run ID           cancel the run and what it started
   mlops bundle repair JOB --run ID [-t T] [--models m,m] [--tasks t,t] [--params k=v,k2=]
                     [--steps TASK=STEP] [--fresh-pipelines t,t] [--latest-repair-id N] [--no-wait]
                                              repair a failed run: a new attempt of it that
@@ -61,7 +62,7 @@ from pydantic import ValidationError
 from gcpbricks import bundle as B
 from gcpbricks import environments, files, infra
 from gcpbricks import runs as runs_mod
-from gcpbricks.publish import publish
+from gcpbricks.publish import POINTER_KEYS, publish, repoint
 from gcpbricks.targets import storage_prefix
 
 EXECUTIONS_API = "https://workflowexecutions.googleapis.com/v1"
@@ -191,11 +192,12 @@ def deploy(lb: B.Loaded, image: str, version: str, out_dir: Path | None, snapsho
         for t in B._all_tasks(job):
             if t.kind != "vertex_pipeline_task":
                 continue
-            if snapshot:
-                print(f"note {t.task_key}: keeps the pipeline published @ {version}; its next deploy "
-                      f"from the project recompiles it")
-                continue
             task_image = B.environment_image(lb, job_name, t.environment_key) if t.environment_key else image
+            if snapshot:
+                # The saved files can't recompile without the project's own build deps; the
+                # published spec takes this release's environment image instead.
+                _repoint_pipeline(lb, job_name, t, task_image, version, out_dir)
+                continue
             code = _publish_pipeline(lb, job_name, t, task_image, version, out_dir)
             if code:
                 return code
@@ -362,6 +364,33 @@ def _record_deployment(lb: B.Loaded, version: str, out_dir: Path | None) -> None
     print(f"ok   deployment: {version} -> gs://{lb.bundle.gcp.bucket}/{obj}")
 
 
+def _repoint_pipeline(lb: B.Loaded, job: str, t, image: str, version: str, out_dir: Path | None) -> None:
+    """A redeploy's vertex_pipeline_task: its published pipeline re-pointed at `image`
+    (publish.repoint)."""
+    b = lb.bundle
+    base = storage_prefix(lb.target) + B.pipeline_prefix(b, job, t)
+    if out_dir is not None:
+        def read(obj: str) -> bytes:
+            path = out_dir / obj
+            if not path.is_file():
+                raise FileNotFoundError(obj)
+            return path.read_bytes()
+    else:
+        from google.api_core.exceptions import NotFound
+        from google.cloud import storage
+
+        bucket = storage.Client().bucket(b.gcp.bucket)
+
+        def read(obj: str) -> bytes:
+            try:
+                return bucket.blob(obj).download_as_bytes()
+            except NotFound as e:
+                raise FileNotFoundError(obj) from e
+    body = repoint(read, bucket=b.gcp.bucket, base=base, version=version, image=image, out_dir=out_dir)
+    print(f"ok   {t.task_key}: " + (f"pipeline re-pointed at {image} @ {body['version']}" if body
+                                    else "pipeline kept as published (already on this image, or none)"))
+
+
 def _publish_pipeline(lb: B.Loaded, job: str, t, image: str, version: str, out_dir: Path | None) -> int:
     """Compiles a vertex_pipeline_task's python_file (or runs its build) and publishes it."""
     b, target, v = lb.bundle, lb.target, t.vertex_pipeline_task
@@ -388,7 +417,7 @@ def _publish_pipeline(lb: B.Loaded, job: str, t, image: str, version: str, out_d
     body = publish(build_dir, bucket=b.gcp.bucket, base=base, version=version, image=image,
                    out_dir=out_dir)
     where = out_dir or f"gs://{b.gcp.bucket}/{base}"
-    print(f"ok   {t.task_key}: published {[k for k in body if k not in ('version', 'image')]} "
+    print(f"ok   {t.task_key}: published {[k for k in body if k not in POINTER_KEYS]} "
           f"@ {version} -> {where}")
     return 0
 
@@ -560,6 +589,19 @@ def why(lb: B.Loaded, name: str, run_id: str, task: str | None) -> int:
     return 0
 
 
+def cancel(lb: B.Loaded, name: str, run_id: str) -> int:
+    """Cancels the run (its latest attempt) and every container and child run it started."""
+    from gcpbricks import workspace as W
+    from gcpbricks.console import service as S
+    g, wf = _console(lb, name)
+    try:
+        out = S.cancel(g, W.whoami(), wf, run_id)
+    except (KeyError, ValueError) as e:
+        sys.exit(f"mlops: {e}")
+    print(f"cancelled {out['cancelled']}" + (f"; stopped {', '.join(out['containers'])}" if out["containers"] else ""))
+    return 0
+
+
 def task(lb: B.Loaded, name: str, run_id: str, key: str) -> int:
     """One task of a run: its state, and for a vertex_pipeline_task every step with its state,
     output values and artifacts' metadata (a gate's metrics), and the Markdown it wrote."""
@@ -581,25 +623,44 @@ def task(lb: B.Loaded, name: str, run_id: str, key: str) -> int:
     if p["run"]["error"]:
         print(f"error: {p['run']['error']}")
     job = g.ai_get(p["run"]["name"])
-    details = {d.get("taskName"): d for d in (job.get("jobDetail") or {}).get("taskDetails", [])}
+    # By step_ref: a step inside a dsl.ParallelFor once per iteration, as `step[i]`.
+    details = {S.step_ref(d): d for d in (job.get("jobDetail") or {}).get("taskDetails", [])}
     texts = []
-    for n in sorted(p["nodes"], key=lambda n: n["level"]):
-        d = details.get(n["key"]) or {}
-        cached = "  (cached)" if (d.get("execution") or {}).get("state") == "CACHED" else ""
-        cond = f"  if {n['condition']}" if n["condition"] else ""
-        print(f"\n  {n['label']:<28} {n['state']:<9}{cond}{cached}")
-        if n["error"]:
-            print(f"    error: {n['error']}")
+
+    def outputs(label: str, d: dict, indent: str) -> None:
         meta = (d.get("execution") or {}).get("metadata") or {}
         for k, v in meta.items():
             if k.startswith("output:") and k != "output:gcp_resources":
                 shown = json.dumps(v)
-                print(f"    {k.removeprefix('output:')} = " + (shown if len(shown) <= 200 else shown[:200] + " ..."))
+                print(f"{indent}{k.removeprefix('output:')} = " + (shown if len(shown) <= 200 else shown[:200] + " ..."))
         for a in PV._artifacts(d.get("outputs")):
             if a["metadata"]:
-                print(f"    {a['name']}: {json.dumps(a['metadata'], separators=(',', ':'))}")
+                print(f"{indent}{a['name']}: {json.dumps(a['metadata'], separators=(',', ':'))}")
             if a["type"] == "system.Markdown" and (a["uri"] or "").startswith("gs://"):
-                texts.append((n["label"], a))
+                texts.append((label, a))
+    for n in sorted(p["nodes"], key=lambda n: n["level"]):
+        d = details.get(n["key"]) or {}
+        cached = "  (cached)" if (d.get("execution") or {}).get("state") == "CACHED" else ""
+        cond = f"  if {n['condition']}" if n["condition"] else ""
+        its = n.get("iterations")
+        if n["kind"] == "for_each":
+            counts = ", ".join(f"{sum(i['state'] == s for i in its)} {s.lower()}" for s in dict.fromkeys(i["state"] for i in its))
+            print(f"\n  {n['label']:<28} {n['state']:<9}  for each: {len(its)} iterations" + (f" ({counts})" if its else ""))
+        else:
+            print(f"\n  {n['label']:<28} {n['state']:<9}{cond}{cached}")
+        if n["error"]:
+            print(f"    error: {n['error']}")
+        if its is not None and n["kind"] != "for_each":
+            # One line per iteration, as Databricks' iterations table; `--step key[i]` reads one.
+            for i in its:
+                ref = f"{n['key']}[{i['index']}]"
+                di = details.get(ref) or {}
+                hit = "  (cached)" if (di.get("execution") or {}).get("state") == "CACHED" else ""
+                print(f"    [{i['index']}] {i['state']:<9}{hit}" + (f"  {(di.get('error') or {}).get('message', '')[:160]}"
+                                                                   if i["state"] == "FAILED" else ""))
+                outputs(ref, di, "        ")
+        elif n["kind"] != "for_each":
+            outputs(n["label"], d, "    ")
     for label, a in texts:
         got = g.read_object(*PV._gs(a["uri"]))
         if got:
@@ -647,10 +708,15 @@ def logs(lb: B.Loaded, name: str, run_id: str, key: str, step: str | None, raw: 
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="mlops", description=__doc__.split("\n\n")[0])
+    ap = argparse.ArgumentParser(prog="mlops", description=(
+        "gcpbricks, as the Databricks CLI: `mlops bundle` validates, deploys and runs a "
+        "project's mlops.yaml; the other groups (jobs, clusters, tables, registered-models, ...) and "
+        "`inspect LINK` work on every deployed bundle from anywhere, as you."))
     top = ap.add_subparsers(dest="group", required=True)
-    bundle = top.add_parser("bundle")
+    bundle = top.add_parser("bundle", help="validate, deploy and run a project's mlops.yaml")
     sub = bundle.add_subparsers(dest="cmd", required=True)
+    from gcpbricks import cli_workspace
+    cli_workspace.add(top)
 
     def common(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
         p.add_argument("-f", "--file", default="mlops.yaml", help="the project's mlops.yaml")
@@ -685,8 +751,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("job")
     p.add_argument("task")
     p.add_argument("--run", required=True, help="the run's id, from `runs`")
-    p.add_argument("--step", help="a vertex_pipeline_task's pipeline step (as `task` lists it), e.g. gate-op")
+    p.add_argument("--step", help="a vertex_pipeline_task's pipeline step (as `task` lists it), e.g. gate-op; "
+                                  "inside a dsl.ParallelFor, one iteration's: work[2]")
     p.add_argument("--raw", action="store_true", help="keep the executor_input dump and runtime warnings")
+    p = common(sub.add_parser("cancel"))
+    p.add_argument("job")
+    p.add_argument("--run", required=True, help="the run's id, from `runs`")
     p = common(sub.add_parser("repair"))
     p.add_argument("job")
     p.add_argument("--run", required=True, help="the failed run's id (or its latest repair's), from `runs`")
@@ -704,6 +774,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--bucket", default="my-ml-bucket")
     p.add_argument("--bundle", help="only this bundle, pinned or not")
     a = ap.parse_args(argv)
+    if a.group != "bundle":
+        return cli_workspace.run(a)
 
     if a.cmd == "redeploy":
         return redeploy(a.bucket, a.target, a.bundle)
@@ -728,6 +800,8 @@ def main(argv: list[str] | None = None) -> int:
                       _steps(a.steps), [t for t in a.fresh_pipelines.split(",") if t])
     if a.cmd == "why":
         return why(lb, a.job, a.run, a.task)
+    if a.cmd == "cancel":
+        return cancel(lb, a.job, a.run)
     if a.cmd == "task":
         return task(lb, a.job, a.run, a.task)
     if a.cmd == "logs":

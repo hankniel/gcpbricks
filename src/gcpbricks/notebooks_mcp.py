@@ -522,7 +522,13 @@ def server(nbs: Callable[[], Notebooks]):
         "read_notebook shows them; read a notebook again before editing by index, since its user may "
         "be editing it in the console too. Code runs on the user's own running Colab runtime, in "
         "the kernel the console's editor shares. The console's blog: posts in GitHub-flavored "
-        "Markdown (mermaid, GitHub alerts, KaTeX), by slug, written and edited as their author."))
+        "Markdown (mermaid, GitHub alerts, KaTeX), by slug, written and edited as their author. "
+        "Jobs, runs and objects: given any console link (a job, run, task, table, model version, "
+        "monitor), a GCP Workflows or Vertex pipeline link or a BigQuery job id, call `inspect` first: "
+        "it answers what it is and, for a failed run or task, the failure chain down to the error and "
+        "log lines, with no script and no raw log search. Then `task_logs` (with `step` for a "
+        "pipeline step), `job_runs`, `list_jobs`. run_job, cancel_run and repair_run change things: "
+        "confirm with the user first."))
     blog = lambda: Blog(nbs().gcp, nbs().user)
     tool = lambda fn: mcp.tool()(_threaded(fn))
 
@@ -655,7 +661,73 @@ def server(nbs: Callable[[], Notebooks]):
         Markdown image to put in its body."""
         return blog().upload_image(slug, file_path)
 
+    _workspace_tools(tool, lambda: nbs().gcp, lambda: nbs().user)
     return mcp
+
+
+def _workspace_tools(tool, gcp, user) -> None:
+    """Jobs, runs and objects of every deployed bundle, the console's own reads and writes as
+    you (gcpbricks.workspace): what `mlops inspect` and `mlops jobs` do on the CLI."""
+    from gcpbricks import workspace as W
+    from gcpbricks.console import service as S
+
+    @tool
+    def inspect(link: str) -> dict:
+        """What a link names and its state, in one call. Takes a console page link (/jobs/W,
+        /jobs/W/runs/R, /jobs/W/runs/R/tasks/T, /catalog/D/T, /models/M/versions/V, /quality/B/T/K,
+        ...), a GCP Workflows execution or Vertex pipeline run link, a BigQuery job id
+        (project:location.job_id) or project.dataset.table. A failed run or task comes with `why`:
+        the path through child runs, pipeline and step to the failing job, its error and last log
+        lines, and the code version deployed."""
+        return W.inspect(gcp(), link)
+
+    @tool
+    def list_jobs(target: str = "") -> list[dict]:
+        """Every bundle job (its Workflow name, bundle, target, schedule, last run); target: dev or prod."""
+        return [{**W._job(j), "last_run": (j["runs"] or [None])[0]} for j in S.list_jobs(gcp(), target or None, 1)]
+
+    @tool
+    def job_runs(job: str, n: int = 20) -> list[dict]:
+        """A job's latest runs (id, state, times, error). job: its Workflow name or console link."""
+        return [W._run(r) for r in S.job_detail(gcp(), W.workflow_of(job), n)["runs"]]
+
+    @tool
+    def why_failed(run: str, task: str = "") -> dict:
+        """What stopped a run (its link, or "WORKFLOW RUN_ID"): the failure chain, error and log
+        tail; for a run that succeeded, the pipeline conditions it skipped and their verdicts."""
+        wf, rid = W.run_of(*run.split()) if " " in run else W.run_of(run, None)
+        return W.why(gcp(), wf, rid, task or None)
+
+    @tool
+    def task_logs(run: str, task: str, step: str = "", n: int = 200) -> list[str]:
+        """What a task printed (its last n lines), or with `step` one step of its Vertex pipeline
+        (the step names inspect/why list; inside a dsl.ParallelFor, one iteration's as `step[i]`).
+        run: the run's link, or "WORKFLOW RUN_ID"."""
+        from gcpbricks.console import pipeline_view as PV
+
+        wf, rid = W.run_of(*run.split()) if " " in run else W.run_of(run, None)
+        lines = PV.step(gcp(), wf, rid, task, step)["logs"] if step else S.task_logs(gcp(), wf, rid, task)
+        return W._logs(lines, n)
+
+    @tool
+    def run_job(job: str, params: dict[str, str] | None = None, only: list[str] | None = None) -> dict:
+        """Starts a run of the job now, as you, with these parameters (only: these tasks alone).
+        Changes things: confirm with the user first."""
+        return S.run_now(gcp(), user(), W.workflow_of(job), params or {}, only)
+
+    @tool
+    def cancel_run(run: str) -> dict:
+        """Cancels a run and every container it started, as you. Changes things: confirm first."""
+        wf, rid = W.run_of(*run.split()) if " " in run else W.run_of(run, None)
+        return S.cancel(gcp(), user(), wf, rid)
+
+    @tool
+    def repair_run(run: str, tasks: list[str] | None = None, models: list[str] | None = None,
+                   params: dict[str, str | None] | None = None) -> dict:
+        """Databricks' repair run: a new attempt that reuses the run's succeeded tasks (tasks: run
+        these again too; models: a batch_serve_task's to rerun in full). Confirm with the user first."""
+        wf, rid = W.run_of(*run.split()) if " " in run else W.run_of(run, None)
+        return S.repair(gcp(), user(), wf, rid, models, tasks, params)
 
 
 def main() -> None:

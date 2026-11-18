@@ -1,0 +1,383 @@
+{
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "endTime": "2026-11-18T06:52:30.613415Z",
+    "error": {
+     "code": 3,
+     "message": "The replica workerpool0-0 exited with a non-zero status of 1. Termination reason: Error. To find out more about why your job exited please check the logs: https://console.cloud.google.com/logs/viewer?project=123456789012&resource=ml_job%2Fjob_id%2F7068902444159205376&advancedFilter=resource.type%3D%22ml_job%22%0Aresource.labels.job_id%3D%227068902444159205376%22"
+    },
+    "execution": {
+     "state": "FAILED"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/7068902444159205376"
+     }
+    },
+    "parentTaskId": "-3778143556170940416",
+    "startTime": "2026-11-18T06:51:28.955802Z",
+    "state": "FAILED",
+    "taskId": "-8732103146278486016",
+    "taskName": "work",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-1.work"
+   },
+   {
+    "endTime": "2026-11-18T06:52:31.406537Z",
+    "error": {
+     "code": 9,
+     "message": "  The DAG failed because some tasks failed. The failed tasks are: [for-loop-2-worker-1]."
+    },
+    "execution": {
+     "state": "FAILED"
+    },
+    "parentTaskId": "3265486261036515328",
+    "startTime": "2026-11-18T06:51:28.373615Z",
+    "state": "FAILED",
+    "taskId": "-8633023954476335104",
+    "taskName": "for-loop-2",
+    "taskUniqueName": "for-loop-2"
+   },
+   {
+    "endTime": "2026-11-18T06:52:30.902233Z",
+    "error": {
+     "code": 9,
+     "message": " The DAG failed because some tasks failed. The failed tasks are: [work]."
+    },
+    "execution": {
+     "state": "FAILED"
+    },
+    "parentTaskId": "-8633023954476335104",
+    "startTime": "2026-11-18T06:51:28.542671Z",
+    "state": "FAILED",
+    "taskId": "-3778143556170940416",
+    "taskName": "for-loop-2-worker-1",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-1"
+   },
+   {
+    "endTime": "2026-11-18T06:52:30.676536Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/2581065415484506112"
+     }
+    },
+    "parentTaskId": "5445228480683835392",
+    "startTime": "2026-11-18T06:51:28.987513Z",
+    "state": "SUCCEEDED",
+    "taskId": "-373422237878845440",
+    "taskName": "work",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-0.work"
+   },
+   {
+    "endTime": "2026-11-18T06:52:30.673242Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/3378202549529083904"
+     }
+    },
+    "parentTaskId": "3139385471470141440",
+    "startTime": "2026-11-18T06:51:28.959930Z",
+    "state": "SUCCEEDED",
+    "taskId": "491268890576289792",
+    "taskName": "work",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-2.work"
+   },
+   {
+    "endTime": "2026-11-18T06:52:31.423542Z",
+    "parentTaskId": "3265486261036515328",
+    "state": "NOT_TRIGGERED",
+    "taskId": "590348082378440704",
+    "taskName": "after",
+    "taskUniqueName": "after"
+   },
+   {
+    "endTime": "2026-11-18T06:52:31.178757Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "parentTaskId": "-8633023954476335104",
+    "startTime": "2026-11-18T06:51:28.538191Z",
+    "state": "SUCCEEDED",
+    "taskId": "3139385471470141440",
+    "taskName": "for-loop-2-worker-2",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-2"
+   },
+   {
+    "endTime": "2026-11-18T06:52:31.575134Z",
+    "error": {
+     "code": 9,
+     "message": "   The DAG failed because some tasks failed. The failed tasks are: [for-loop-2]."
+    },
+    "execution": {
+     "state": "FAILED"
+    },
+    "startTime": "2026-11-18T06:51:28.202015Z",
+    "state": "FAILED",
+    "taskId": "3265486261036515328",
+    "taskName": "spike-b7ec7084",
+    "taskUniqueName": "spike-b7ec7084"
+   },
+   {
+    "endTime": "2026-11-18T06:52:31.186010Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "parentTaskId": "-8633023954476335104",
+    "startTime": "2026-11-18T06:51:28.526271Z",
+    "state": "SUCCEEDED",
+    "taskId": "5445228480683835392",
+    "taskName": "for-loop-2-worker-0",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-0"
+   }
+  ]
+ },
+ "name": "projects/1/locations/us-central1/pipelineJobs/spike-b7ec7084",
+ "pipelineSpec": {
+  "components": {
+   "comp-after": {
+    "executorLabel": "exec-after",
+    "inputDefinitions": {
+     "parameters": {
+      "values": {
+       "parameterType": "LIST"
+      }
+     }
+    },
+    "outputDefinitions": {
+     "parameters": {
+      "Output": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    }
+   },
+   "comp-for-loop-2": {
+    "dag": {
+     "outputs": {
+      "parameters": {
+       "pipelinechannel--work-Output": {
+        "valueFromParameter": {
+         "outputParameterKey": "Output",
+         "producerSubtask": "work"
+        }
+       }
+      }
+     },
+     "tasks": {
+      "work": {
+       "cachingOptions": {
+        "enableCache": true
+       },
+       "componentRef": {
+        "name": "comp-work"
+       },
+       "inputs": {
+        "parameters": {
+         "i": {
+          "componentInputParameter": "pipelinechannel--loop-item-param-1"
+         }
+        }
+       },
+       "taskInfo": {
+        "name": "work"
+       }
+      }
+     }
+    },
+    "inputDefinitions": {
+     "parameters": {
+      "pipelinechannel--loop-item-param-1": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    },
+    "outputDefinitions": {
+     "parameters": {
+      "pipelinechannel--work-Output": {
+       "parameterType": "LIST"
+      }
+     }
+    }
+   },
+   "comp-work": {
+    "executorLabel": "exec-work",
+    "inputDefinitions": {
+     "parameters": {
+      "i": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    },
+    "outputDefinitions": {
+     "parameters": {
+      "Output": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    }
+   }
+  },
+  "deploymentConfig": {
+   "@type": "type.googleapis.com/ml_pipelines.PipelineDeploymentConfig",
+   "executors": {
+    "exec-after": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "after"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n",
+       "sh",
+       "-ec",
+       "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+       "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef after(values: list) -> int:\n    return sum(values)\n\n"
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    },
+    "exec-work": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "work"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-storage'  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n",
+       "sh",
+       "-ec",
+       "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+       "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef work(i: int) -> int:\n    from google.cloud import storage\n    if i == 1 and storage.Client().bucket(\"my-ml-bucket\").blob(\"dev/.scratch/pipeline-spike/fail-1\").exists():\n        raise RuntimeError(\"item 1 fails while the flag exists\")\n    return i * 10\n\n"
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    }
+   }
+  },
+  "deploymentSpec": {
+   "executors": {
+    "exec-after": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "after"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "..."
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    },
+    "exec-work": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "work"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "..."
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    }
+   }
+  },
+  "pipelineInfo": {
+   "name": "mlops-parallelfor-cache-spike"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "after": {
+      "cachingOptions": {},
+      "componentRef": {
+       "name": "comp-after"
+      },
+      "dependentTasks": [
+       "for-loop-2"
+      ],
+      "inputs": {
+       "parameters": {
+        "values": {
+         "taskOutputParameter": {
+          "outputParameterKey": "pipelinechannel--work-Output",
+          "producerTask": "for-loop-2"
+         }
+        }
+       }
+      },
+      "taskInfo": {
+       "name": "after"
+      }
+     },
+     "for-loop-2": {
+      "componentRef": {
+       "name": "comp-for-loop-2"
+      },
+      "iteratorPolicy": {
+       "parallelismLimit": 3
+      },
+      "parameterIterator": {
+       "itemInput": "pipelinechannel--loop-item-param-1",
+       "items": {
+        "raw": "[0, 1, 2]"
+       }
+      },
+      "taskInfo": {
+       "name": "for-loop-2"
+      }
+     }
+    }
+   }
+  },
+  "schemaVersion": "2.1.0",
+  "sdkVersion": "kfp-2.17.0"
+ },
+ "state": "PIPELINE_STATE_FAILED"
+}

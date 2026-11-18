@@ -4,6 +4,7 @@ import {
   Typography, useDesignSystemTheme,
 } from "@databricks/design-system";
 import { api, type CostItem, type CostSource } from "../api";
+import { BigQueryBreakdown } from "../components/BigQueryCosts";
 import Chart from "../components/Chart";
 import PageTitle from "../components/PageTitle";
 import { Table, TableHeader } from "../components/Table";
@@ -70,6 +71,9 @@ export default function CostsPage() {
           <Chart kind="bar" stacked height={240} xs={data.days.map((d) => d.day.slice(5))}
                  series={SOURCES.filter((s) => s.key in t).map((s) => ({
                    name: s.label, points: data.days.map((d) => ({ x: d.day.slice(5), y: d[s.key] ?? null })) }))} />
+          <Spacer size="lg" />
+          <Typography.Title level={4}>BigQuery: where it comes from</Typography.Title>
+          <BigQueryBreakdown days={days} />
           <Spacer size="lg" />
           <Typography.Title level={4}>Running now</Typography.Title>
           <Table empty={data.running.length ? undefined : <Empty title="Nothing bills by the hour right now" description="Runtimes, always-on services, endpoints and running jobs show here." />}>

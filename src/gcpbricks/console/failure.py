@@ -60,7 +60,7 @@ def _run(gcp, workflow: str, execution_id: str, task: str | None, out: dict) -> 
     if S._job_of(gcp.workflow(wf)):
         _run(gcp, wf, child_id, None, out)
     else:
-        _runner(gcp, wf, child_id, out)
+        _runner(gcp, wf, child_id, out, d.get("run_id") or execution_id, t["key"])
 
 
 def _skipped(gcp, workflow: str, execution_id: str, tasks: list[str]) -> list[dict]:
@@ -105,9 +105,10 @@ def _container(gcp, x: dict, out: dict) -> None:
     out["logs"] = _tail(gcp, flt, x.get("start"), ex.get("completionTime"))
 
 
-def _runner(gcp, workflow: str, execution_id: str, out: dict) -> None:
+def _runner(gcp, workflow: str, execution_id: str, out: dict, run_id: str = "", task: str = "") -> None:
     """A runner Workflow (vertex_pipeline, batch_serve, notebook): its error, and the Vertex
-    pipeline it ran when there is one."""
+    pipeline it ran when there is one, else the last lines of the containers it started
+    (traced with the run's trace, gcpbricks.tracing), else its own."""
     ex = gcp.execution(workflow, execution_id)
     error = (ex.get("error") or {}).get("payload") or ""
     out["path"].append({"kind": "runner", "label": workflow, "state": ex.get("state"),
@@ -119,6 +120,10 @@ def _runner(gcp, workflow: str, execution_id: str, out: dict) -> None:
     if m:
         _pipeline(gcp, m.group(0), out)
         return
+    if run_id and task:
+        out["logs"] = _tail(gcp, S.trace_filter(gcp, run_id, task), ex.get("startTime"), ex.get("endTime"))
+        if out["logs"]:
+            return
     flt = (f'resource.type="workflows.googleapis.com/Workflow" AND resource.labels.workflow_id="{workflow}" '
            f'AND labels.execution_id="{execution_id}"')
     out["logs"] = _tail(gcp, flt, ex.get("startTime"), ex.get("endTime"))
@@ -138,7 +143,7 @@ def _pipeline(gcp, name: str, out: dict) -> None:
     if not steps:
         return
     step = min(steps, key=lambda t: t.get("endTime") or "~")
-    out["path"].append({"kind": "step", "label": step.get("taskName", ""), "state": "FAILED", "link": out["path"][-1]["link"]})
+    out["path"].append({"kind": "step", "label": S.step_ref(step), "state": "FAILED", "link": out["path"][-1]["link"]})
     out["error"] = (step.get("error") or {}).get("message") or out["error"]
     ed = step["executorDetail"]
     custom = (ed.get("customJobDetail") or {}).get("job") or (ed.get("containerDetail") or {}).get("mainJob")

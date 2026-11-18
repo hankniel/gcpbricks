@@ -10,7 +10,7 @@ import SidePanel from "../components/SidePanel";
 import { Table, TableHeader } from "../components/Table";
 import { api } from "../api";
 import { Field, ParamList, Section } from "../components/Panel";
-import { Status, useStateFill } from "../components/Status";
+import { Status, useStatePaint } from "../components/Status";
 import RepairModal from "../components/RepairModal";
 import WhyFailed from "../components/WhyFailed";
 import TaskGraph from "../components/TaskGraph";
@@ -25,7 +25,7 @@ export default function RunPage() {
   const wanted = search.get("repair_id");
   const repairId = wanted === null ? null : Number(wanted);
   const { theme } = useDesignSystemTheme();
-  const fill = useStateFill();
+  const paint = useStatePaint();
   const job = useLoad(() => api.job(wf), [wf]);
   // While the run moves, poll every few seconds and let its clocks tick each second.
   const [moving, setMoving] = useState(true);
@@ -125,7 +125,7 @@ export default function RunPage() {
                       <div css={{ position: "relative", height: 14 }}>
                         {x?.start && <Tooltip componentId="run.tl" content={`${label[x.status ?? ""] ?? ""} · ${duration(x.start, x.end)}`}>
                           <span css={{ position: "absolute", top: 0, bottom: 0, left: `${a * 100}%`, width: `${Math.max(0.5, (b - a) * 100)}%`,
-                                       background: fill(x.status), borderRadius: 3 }} />
+                                       ...paint(x.status), borderRadius: 3 }} />
                         </Tooltip>}
                       </div>
                       <Typography.Text color="secondary" css={{ textAlign: "right" }}>{x?.start ? duration(x.start, x.end) : label[x?.status ?? ""] ?? ""}</Typography.Text>

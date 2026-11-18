@@ -9,6 +9,8 @@ import { Table, TableHeader } from "../../components/Table";
 import { api, Column, Dataset, DatasetDetail, Sample, TableDetail } from "../../api";
 import { ColumnTypeIcon, IconTile, OBJECT_TYPE, ObjectIcon, typeText } from "../../components/LineageGraph";
 import LineageTab from "../../components/LineageTab";
+import { TableCostTab } from "../../components/BigQueryCosts";
+import QualityTab from "./Quality";
 import SampleGrid from "../../components/SampleGrid";
 import { useLoad, when } from "../../util";
 
@@ -423,7 +425,7 @@ function SampleData({ t }: { t: TableDetail }) {
   );
 }
 
-/** Catalog Explorer's table page: Overview (columns), Sample Data, Details, Lineage. */
+/** Catalog Explorer's table page: Overview (columns), Sample Data, Details, Lineage, Quality. */
 export function TablePage() {
   const { dataset = "", table = "" } = useParams();
   const { theme } = useDesignSystemTheme();
@@ -452,6 +454,8 @@ export function TablePage() {
             <Tabs.Trigger value="sample">Sample Data</Tabs.Trigger>
             <Tabs.Trigger value="details">Details</Tabs.Trigger>
             <Tabs.Trigger value="lineage">Lineage</Tabs.Trigger>
+            <Tabs.Trigger value="quality">Quality</Tabs.Trigger>
+            <Tabs.Trigger value="cost">Cost</Tabs.Trigger>
           </Tabs.List>
           <Tabs.Content value="overview">
             <Description text={t.description} />
@@ -498,6 +502,8 @@ export function TablePage() {
           <Tabs.Content value="lineage">
             {ours && <LineageTab center={`table:${t.full_name}`} title={t.full_name} project={ours} />}
           </Tabs.Content>
+          <Tabs.Content value="cost"><TableCostTab fullName={t.full_name} /></Tabs.Content>
+          <Tabs.Content value="quality"><QualityTab dataset={dataset} table={table} project={other} fullName={t.full_name} columns={t.schema} /></Tabs.Content>
         </Tabs.Root>
       )}
     </>

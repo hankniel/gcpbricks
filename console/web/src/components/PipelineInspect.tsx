@@ -10,13 +10,14 @@ import TaskGraph from "./TaskGraph";
 import { UnitCharts } from "./TaskMetrics";
 import { clock, duration, fmtValue, useLoad, when } from "../util";
 
+/** A pipeline flow's step or decision (console.service.pipeline_flow) as the task graph draws it:
+ *  a decision is a condition task, its test the detail, its way in a run `taken`. */
 export function asNode(s: PipelineStep, deps: string[]): GraphNode {
-  // A dsl.If / Else pair is a group with no condition of its own: its two branches carry them.
-  const name = s.kind === "condition" ? (s.condition ? `If ${s.condition}` : "If / Else") : s.label;
-  return { key: s.key, label: name, type: s.kind === "condition" ? "condition" : "cloud_run",
-           kind: s.kind === "condition" ? "condition_task" : "pipeline_step", inner_kind: null, level: s.level, run_if: "",
-           for_each: false, max_retries: 0, detail: s.kind === "condition" ? "Condition" : s.key, depends_on: deps,
-           parent: s.parent };
+  const decision = s.kind === "decision", loop = s.kind === "for_each";
+  return { key: s.key, label: s.label, type: decision ? "condition" : loop ? "for_each" : "cloud_run",
+           kind: decision ? "condition_task" : "pipeline_step", inner_kind: null, level: s.level, run_if: "",
+           for_each: loop, max_retries: 0, depends_on: deps, taken: s.taken ?? null,
+           detail: decision ? s.condition : loop ? `${s.iterations?.length ?? 0} iterations` : s.key };
 }
 
 function Pre({ children, max = 360 }: { children: React.ReactNode; max?: number }) {
@@ -75,7 +76,8 @@ export function PipelineDefinition({ wf, task }: { wf: string; task: string }) {
   const [picked, setPicked] = useState<string | null>(null);
   if (error) return <Alert componentId="pipe.def.error" type="warning" message="Couldn't read the published pipeline" description={error} closable={false} />;
   if (!data) return <TableSkeleton lines={4} />;
-  const nodes = data.nodes.map((s) => asNode(s, data.edges.filter((e) => e.to === s.key).map((e) => e.from)));
+  const { nodes: steps, edges } = data.flow;
+  const nodes = steps.map((s) => asNode(s, edges.filter((e) => e.to === s.key).map((e) => e.from)));
   const step = picked ? data.steps[picked] : null;
   return (
     <>
@@ -96,8 +98,7 @@ export function PipelineDefinition({ wf, task }: { wf: string; task: string }) {
           </TableRow>))}
       </Table>
       <Spacer size="sm" />
-      <TaskGraph nodes={nodes} edges={data.edges.map((e) => ({ ...e, outcome: "" }))} selected={picked}
-                 onPick={(k) => setPicked(picked === k ? null : k)} height={560} vertical />
+      <TaskGraph nodes={nodes} edges={edges} selected={picked} onPick={(k) => setPicked(picked === k ? null : k)} height={560} layered />
       {step ? (
         <div css={{ marginTop: theme.spacing.sm, padding: theme.spacing.md, border: `1px solid ${theme.colors.border}`, borderRadius: theme.borders.borderRadiusMd }}>
           <Typography.Title level={4} css={{ "&&": { marginTop: 0 } }}>{step.label}</Typography.Title>

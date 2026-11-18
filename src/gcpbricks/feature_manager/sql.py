@@ -215,10 +215,12 @@ class Program:
         for name, v in self.temps.items():
             by_level.setdefault(v.level, {})[name] = v
         current = source
+        # copy=False: each level wraps the one below, built here and read nowhere else; a copy
+        # per level copies every level below it again.
         for level in sorted(by_level):
             new = [exp.alias_(X.q(v.expr), n, quoted=True) for n, v in by_level[level].items()]
-            current = exp.select(exp.Star(), *new).from_(current.subquery(f"_l{level}"))
-        return exp.select(*[exp.column(c, quoted=True) for c in keep]).from_(current.subquery("_out"))
+            current = exp.select(exp.Star(), *new).from_(current.subquery(f"_l{level}", copy=False))
+        return exp.select(*[exp.column(c, quoted=True) for c in keep]).from_(current.subquery("_out", copy=False))
 
 
 def column(name: str, boolean: bool = False) -> V:

@@ -1,6 +1,6 @@
 [project]
 name = "gcpbricks"
-version = "0.9.8"
+version = "0.9.18"
 description = "Databricks Asset Bundles on GCP: declare jobs in mlops.yaml; deploy and run them on Cloud Workflows, Cloud Run, Vertex AI and Cloud Scheduler."
 requires-python = ">=3.11"
 dependencies = [
@@ -41,6 +41,8 @@ mlops = "gcpbricks.cli:main"
 mlops-features = "gcpbricks.feature_config:main"
 mlops-task = "gcpbricks.task_runner:main"
 mlops-notebooks-mcp = "gcpbricks.notebooks_mcp:main"
+# The same server: notebooks, the blog, and jobs, runs and objects (inspect).
+mlops-mcp = "gcpbricks.notebooks_mcp:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -402,9 +402,14 @@ class VertexSdk:
         if r.status_code == 404:
             return False
         r.raise_for_status()
-        labels = r.json().get("labels") or {}
+        current = r.json()
+        labels = current.get("labels") or {}
         if (RETIRED in labels) == (since is not None):
             return True
         labels = {**labels, RETIRED: since} if since is not None else {k: v for k, v in labels.items() if k != RETIRED}
-        self._rest("PATCH", resource, params={"updateMask": "labels"}, json={"labels": labels}).raise_for_status()
+        body = {"labels": labels}
+        if kind == "experiment":
+            # A metadata context's PATCH is refused (400) without its schemaTitle.
+            body["schemaTitle"] = current["schemaTitle"]
+        self._rest("PATCH", resource, params={"updateMask": "labels"}, json=body).raise_for_status()
         return True

@@ -28,7 +28,8 @@
 
 Keys are Databricks' own. The extensions are `bundle.mlops_version`, `gcp`, and the task
 types `vertex_pipeline_task` and `batch_serve_task`; `notebook_task` runs on Colab Enterprise; a Databricks key the platform does not
-run is refused, never ignored.
+run is refused, never ignored. Each `quality_monitors` entry adds its refresh job,
+`<key>-monitor` (gcpbricks.monitors).
 
 load() resolves includes, the target's overrides and `${...}` substitutions, then
 validates. render() turns the result into the terraform module's `plan`: each job's
@@ -49,10 +50,13 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from gcpbricks.ml import Experiment, ModelServingEndpoint, RegisteredModel
+from gcpbricks.monitors import QualityMonitor
 from gcpbricks.targets import PROD, name_suffix, storage_prefix
 
 NAME = r"^[a-z][a-z0-9-]{0,40}$"
 KEY = r"^[a-z][a-z0-9_-]{0,40}$"
+#: A quality monitor's key: KEY once "-monitor" is added for its refresh job.
+MONITOR_KEY = r"^[a-z][a-z0-9_-]{0,32}$"
 #: A task's default and maximum wait: Cloud Run jobs stop at 24 hours.
 MAX_TASK_SECONDS = 86400
 #: Workflows runs at most this many parallel branches and iterations at once.
@@ -791,6 +795,7 @@ class Resources(_Strict):
     model_serving_endpoints: dict[str, ModelServingEndpoint] = {}
     schemas: dict[str, Schema] = {}
     dashboards: dict[str, Dashboard] = {}
+    quality_monitors: dict[str, QualityMonitor] = {}
 
 
 class Bundle(_Strict):
@@ -823,6 +828,10 @@ class Bundle(_Strict):
                 raise ValueError(f"{kind}: two resources share a name: {sorted(seen)}")
         if sum(t.default for t in self.targets.values()) > 1:
             raise ValueError("at most one target sets default: true")
+        for key in self.resources.quality_monitors:
+            if not re.match(MONITOR_KEY, key):
+                raise ValueError(f"quality monitor {key!r}: names match {MONITOR_KEY}, so its refresh "
+                                 f"job's key fits")
         return self
 
 
@@ -1128,7 +1137,8 @@ def load(path: str | Path = "mlops.yaml", target: str | None = None,
     name = (raw.get("bundle") or {}).get("name")
     ctx: dict[str, object] = {f"var.{k}": v for k, v in values.items()}
     ctx |= {"bundle.name": name, "bundle.target": target}
-    first = _substitute({k: v for k, v in merged.items() if k != "targets"}, ctx, None)
+    first = _with_monitor_jobs(_substitute({k: v for k, v in merged.items() if k != "targets"}, ctx, None),
+                               target)
     names = resource_names(first.get("resources") or {}, target, name)
     refs = {f"resources.{kind}.{key}.{field}": value
             for kind, by_key in names.items() for key, value in by_key.items()
@@ -1136,6 +1146,39 @@ def load(path: str | Path = "mlops.yaml", target: str | None = None,
     resolved = _substitute(first, ctx, refs)
     resolved["targets"] = targets
     return Loaded(bundle=Bundle.model_validate(resolved), target=target, root=root)
+
+
+def _with_monitor_jobs(raw: dict, target: str) -> dict:
+    """raw with each quality monitor's refresh job added to its jobs, as the bundle would
+    declare it: it runs, is scheduled, notifies and is called like any other job."""
+    from gcpbricks import monitors
+    from gcpbricks.environments import RUNTIME_REPO
+
+    resources = raw.get("resources") or {}
+    declared = resources.get("quality_monitors") or {}
+    if not declared:
+        return raw
+    jobs = dict(resources.get("jobs") or {})
+    gcp = raw.get("gcp") or {}
+    pinned = (raw.get("bundle") or {}).get("mlops_version")
+    if pinned == LATEST:
+        from importlib.metadata import version
+
+        pinned = version("gcpbricks")
+    for key, m in declared.items():
+        job = monitors.job_key(key)
+        if job in jobs:
+            raise ValueError(f"quality monitor {key!r}: job {job!r} is its refresh job; the bundle "
+                             f"declares a job by that key")
+        jobs[job] = monitors.refresh_job(
+            key, m, f"{RUNTIME_REPO}/runtime:{pinned}", project=gcp.get("project"), bucket=gcp.get("bucket"),
+            state_object=monitor_state_object((raw.get("bundle") or {}).get("name"), key, target))
+    return {**raw, "resources": {**resources, "jobs": jobs}}
+
+
+def monitor_state_object(bundle: str, key: str, target: str) -> str:
+    """Where a monitor's refresh keeps its monitor_version and the configuration it is for."""
+    return f"{storage_prefix(target)}.bundle/{bundle}/monitors/{key}.json"
 
 
 # --- names --------------------------------------------------------------------------------
@@ -1478,8 +1521,10 @@ def _descriptor(lb: Loaded, job: str, task: _TaskBase) -> dict:
         body = _workflow(task_workflow_name(b, kind, t), _vertex_argument(lb, job, task),
                          task.vertex_pipeline_task.parameters, "overrides")
     elif kind == "batch_serve_task":
-        body = _workflow(task_workflow_name(b, kind, t), _batch_serve_argument(lb, job, task),
-                         task.batch_serve_task.parameters, "")
+        body = {**_workflow(task_workflow_name(b, kind, t), _batch_serve_argument(lb, job, task),
+                            task.batch_serve_task.parameters, ""),
+                # Its runner starts containers: workflows/job.yaml passes it the run's trace.
+                "traced": True}
     elif kind == "notebook_task":
         body = _workflow(task_workflow_name(b, kind, t), _notebook_argument(lb, job, task),
                          task.notebook_task.base_parameters, "parameters")
@@ -1902,7 +1947,38 @@ def deployment(lb: Loaded, version: str, mlops_version: str, deployed_by: str, c
                 "model_serving_endpoints": names["model_serving_endpoints"],
                 "schemas": {k: {"project": s.catalog_name or b.gcp.project, "dataset": names["schemas"][k]}
                             for k, s in b.resources.schemas.items()},
-                "dashboards": {k: dashboard_object(b, k, t) for k in b.resources.dashboards}}}
+                "dashboards": {k: dashboard_object(b, k, t) for k in b.resources.dashboards},
+                "quality_monitors": quality_monitors(lb)}}
+
+
+def quality_monitors(lb: Loaded) -> dict[str, dict]:
+    """Each quality monitor as the console reads it from deployment.json: what it profiles,
+    where its metric tables are and the job that refreshes them."""
+    from gcpbricks import monitors
+
+    b, t = lb.bundle, lb.target
+    out = {}
+    for k, m in sorted(b.resources.quality_monitors.items()):
+        profile, drift = m.output_tables()
+        il = m.inference_log
+        out[k] = {"table_name": m.table_name, "profile_type": m.profile_type,
+                  "profile_metrics_table": profile, "drift_metrics_table": drift,
+                  "baseline_table_name": m.baseline_table_name, "slicing_exprs": m.slicing_exprs,
+                  "granularities": m.granularities, "timestamp_col": m.timestamp_col,
+                  "problem_type": il.problem_type if il else None,
+                  "prediction_col": il.prediction_col if il else None,
+                  "label_col": il.label_col if il else None,
+                  "model_id_col": il.model_id_col if il else None,
+                  "prediction_proba_col": il.prediction_proba_col if il else None,
+                  "anomalies_table": m.anomalies_table(),
+                  "custom_metrics": [cm.name for cm in m.custom_metrics if cm.type != "CUSTOM_METRIC_TYPE_DRIFT"],
+                  "drift_custom_metrics": [cm.name for cm in m.custom_metrics
+                                           if cm.type == "CUSTOM_METRIC_TYPE_DRIFT"],
+                  "schedule": m.schedule.model_dump(exclude_none=True) if m.schedule else None,
+                  "job": monitors.job_key(k), "workflow": workflow_name(b, monitors.job_key(k), t),
+                  # As declared, resolved: what the console's Update monitor dialog starts from.
+                  "config": m.model_dump(exclude_none=True, exclude_defaults=True)}
+    return out
 
 
 def dashboard_object(b: Bundle, key: str, target: str) -> str:

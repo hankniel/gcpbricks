@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Tooltip, Typography, useDesignSystemTheme } from "@databricks/design-system";
 import { RunSummary } from "../api";
-import { useStateFill } from "./Status";
+import { CANCELLED_PAINT, useStateFill } from "./Status";
 import { TIME_ZONE, duration, label, runState, tickText, when } from "../util";
 
 const secs = (r: RunSummary) => Math.max(1, ((r.end ? Date.parse(r.end) : Date.now()) - Date.parse(r.start)) / 1000);
@@ -25,6 +25,7 @@ export default function RunsMatrix({ wf, runs, tasks }: { wf: string; runs: RunS
       case "SUCCEEDED_WITH_FAILURES": return { background: "#C8A12B" };
       case "FAILED": return { background: "#CC3352", backgroundImage: hatch };
       case "UPSTREAM_FAILED": return { background: "#F69CAD" };
+      case "CANCELLED": return CANCELLED_PAINT;
       default: return { background: base(s) };
     }
   };

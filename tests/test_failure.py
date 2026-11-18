@@ -107,6 +107,26 @@ def test_a_failed_container_shows_its_own_last_lines():
     assert [line["text"] for line in w["logs"]] == ["KeyError: 'cost'"] and w["code"] == {}
 
 
+def test_a_runners_failure_shows_its_containers_last_lines_by_the_runs_trace(gcp):
+    """A batch_serve runner names no container it started: its models' lines are found by the
+    run's trace and the task's label, not the runner's own one-line error event."""
+    gcp.execs["c1"]["error"] = {"payload": json.dumps('serving failed for: ["ua_forecast_mh"]')}
+    real = gcp.log_entries
+
+    def entries(flt, n=500, newest_first=False):
+        if "trace=" in flt:
+            gcp.queries.append(flt)
+            lines = [{"timestamp": "2026-10-14T01:10:00Z", "jsonPayload": {"message": "chunk 2026-10-19: predict"}},
+                     {"timestamp": "2026-10-14T01:12:00Z", "jsonPayload": {"message": "mlops-task: killed by SIGKILL"}}]
+            return lines[::-1] if newest_first else lines
+        return real(flt, n, newest_first)
+    gcp.log_entries = entries
+    w = F.why(gcp, "demo-j", "e1")
+    assert [p["kind"] for p in w["path"]] == ["run", "task", "runner"]
+    assert [line["text"] for line in w["logs"]] == ["chunk 2026-10-19: predict", "mlops-task: killed by SIGKILL"]
+    assert any('trace="projects/p/traces/e1"' in q and 'labels.mlops_task="b"' in q for q in gcp.queries)
+
+
 def test_a_run_that_succeeded_names_the_condition_it_skipped_and_the_verdict_behind_it(monkeypatch):
     S._FINISHED.clear()
     F._DONE.clear()

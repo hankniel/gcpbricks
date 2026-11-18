@@ -388,7 +388,7 @@ def task_stats(gcp, workflow: str, execution_id: str, task: str) -> dict:
         run = S.pipeline_run(gcp, workflow, execution_id, task)["run"]
         if run:
             details = (gcp.ai_get(run["name"]).get("jobDetail") or {}).get("taskDetails", [])
-            mains = [(d["taskName"], ((d.get("executorDetail") or {}).get("containerDetail") or {}).get("mainJob")
+            mains = [(S.step_ref(d), ((d.get("executorDetail") or {}).get("containerDetail") or {}).get("mainJob")
                       or ((d.get("executorDetail") or {}).get("customJobDetail") or {}).get("job")) for d in details]
             with ThreadPoolExecutor(4) as pool:
                 units = list(pool.map(lambda m: custom_job(gcp, m[1], m[0]), [m for m in mains if m[1]]))

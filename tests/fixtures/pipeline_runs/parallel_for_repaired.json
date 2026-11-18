@@ -1,0 +1,376 @@
+{
+ "jobDetail": {
+  "taskDetails": [
+   {
+    "endTime": "2026-11-18T06:54:06.532310Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "parentTaskId": "-7660246434964307968",
+    "startTime": "2026-11-18T06:52:53.975871Z",
+    "state": "SUCCEEDED",
+    "taskId": "-7768332826021199872",
+    "taskName": "for-loop-2-worker-1",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-1"
+   },
+   {
+    "endTime": "2026-11-18T06:54:06.776224Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "parentTaskId": "3400594249857630208",
+    "startTime": "2026-11-18T06:52:53.837007Z",
+    "state": "SUCCEEDED",
+    "taskId": "-7660246434964307968",
+    "taskName": "for-loop-2",
+    "taskUniqueName": "for-loop-2"
+   },
+   {
+    "endTime": "2026-11-18T06:52:54.461741Z",
+    "execution": {
+     "state": "CACHED"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/2581065415484506112"
+     }
+    },
+    "parentTaskId": "1455039210833575936",
+    "startTime": "2026-11-18T06:52:54.461741Z",
+    "state": "SKIPPED",
+    "taskId": "-3372819589707595776",
+    "taskName": "work",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-0.work"
+   },
+   {
+    "endTime": "2026-11-18T06:55:19.274533Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/7342496121521963008"
+     }
+    },
+    "parentTaskId": "3400594249857630208",
+    "startTime": "2026-11-18T06:54:07.062240Z",
+    "state": "SUCCEEDED",
+    "taskId": "-1895638911930073088",
+    "taskName": "after",
+    "taskUniqueName": "after"
+   },
+   {
+    "endTime": "2026-11-18T06:52:54.694359Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "parentTaskId": "-7660246434964307968",
+    "startTime": "2026-11-18T06:52:53.977775Z",
+    "state": "SUCCEEDED",
+    "taskId": "1455039210833575936",
+    "taskName": "for-loop-2-worker-0",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-0"
+   },
+   {
+    "endTime": "2026-11-18T06:55:19.498696Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "startTime": "2026-11-18T06:52:53.670095Z",
+    "state": "SUCCEEDED",
+    "taskId": "3400594249857630208",
+    "taskName": "spike-0e46e522",
+    "taskUniqueName": "spike-0e46e522"
+   },
+   {
+    "endTime": "2026-11-18T06:52:54.452861Z",
+    "execution": {
+     "state": "CACHED"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/3378202549529083904"
+     }
+    },
+    "parentTaskId": "6066725229260963840",
+    "startTime": "2026-11-18T06:52:54.452861Z",
+    "state": "SKIPPED",
+    "taskId": "3544709437933486080",
+    "taskName": "work",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-2.work"
+   },
+   {
+    "endTime": "2026-11-18T06:54:06.232527Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "executorDetail": {
+     "containerDetail": {
+      "mainJob": "projects/123456789012/locations/us-central1/customJobs/7733183389196353536"
+     }
+    },
+    "parentTaskId": "-7768332826021199872",
+    "startTime": "2026-11-18T06:52:54.385333Z",
+    "state": "SUCCEEDED",
+    "taskId": "5850552447147180032",
+    "taskName": "work",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-1.work"
+   },
+   {
+    "endTime": "2026-11-18T06:52:54.678390Z",
+    "execution": {
+     "state": "COMPLETE"
+    },
+    "parentTaskId": "-7660246434964307968",
+    "startTime": "2026-11-18T06:52:53.989263Z",
+    "state": "SUCCEEDED",
+    "taskId": "6066725229260963840",
+    "taskName": "for-loop-2-worker-2",
+    "taskUniqueName": "for-loop-2.for-loop-2-worker-2"
+   }
+  ]
+ },
+ "name": "projects/1/locations/us-central1/pipelineJobs/spike-0e46e522",
+ "pipelineSpec": {
+  "components": {
+   "comp-after": {
+    "executorLabel": "exec-after",
+    "inputDefinitions": {
+     "parameters": {
+      "values": {
+       "parameterType": "LIST"
+      }
+     }
+    },
+    "outputDefinitions": {
+     "parameters": {
+      "Output": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    }
+   },
+   "comp-for-loop-2": {
+    "dag": {
+     "outputs": {
+      "parameters": {
+       "pipelinechannel--work-Output": {
+        "valueFromParameter": {
+         "outputParameterKey": "Output",
+         "producerSubtask": "work"
+        }
+       }
+      }
+     },
+     "tasks": {
+      "work": {
+       "cachingOptions": {
+        "enableCache": true
+       },
+       "componentRef": {
+        "name": "comp-work"
+       },
+       "inputs": {
+        "parameters": {
+         "i": {
+          "componentInputParameter": "pipelinechannel--loop-item-param-1"
+         }
+        }
+       },
+       "taskInfo": {
+        "name": "work"
+       }
+      }
+     }
+    },
+    "inputDefinitions": {
+     "parameters": {
+      "pipelinechannel--loop-item-param-1": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    },
+    "outputDefinitions": {
+     "parameters": {
+      "pipelinechannel--work-Output": {
+       "parameterType": "LIST"
+      }
+     }
+    }
+   },
+   "comp-work": {
+    "executorLabel": "exec-work",
+    "inputDefinitions": {
+     "parameters": {
+      "i": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    },
+    "outputDefinitions": {
+     "parameters": {
+      "Output": {
+       "parameterType": "NUMBER_INTEGER"
+      }
+     }
+    }
+   }
+  },
+  "deploymentConfig": {
+   "@type": "type.googleapis.com/ml_pipelines.PipelineDeploymentConfig",
+   "executors": {
+    "exec-after": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "after"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n",
+       "sh",
+       "-ec",
+       "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+       "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef after(values: list) -> int:\n    return sum(values)\n\n"
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    },
+    "exec-work": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "work"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-storage'  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.17.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"$0\" \"$@\"\n",
+       "sh",
+       "-ec",
+       "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+       "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef work(i: int) -> int:\n    from google.cloud import storage\n    if i == 1 and storage.Client().bucket(\"my-ml-bucket\").blob(\"dev/.scratch/pipeline-spike/fail-1\").exists():\n        raise RuntimeError(\"item 1 fails while the flag exists\")\n    return i * 10\n\n"
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    }
+   }
+  },
+  "deploymentSpec": {
+   "executors": {
+    "exec-after": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "after"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "..."
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    },
+    "exec-work": {
+     "container": {
+      "args": [
+       "--executor_input",
+       "{{$}}",
+       "--function_to_execute",
+       "work"
+      ],
+      "command": [
+       "sh",
+       "-c",
+       "..."
+      ],
+      "env": [
+       {
+        "name": "MLOPS_BUNDLE_VERSION",
+        "value": "v1"
+       }
+      ],
+      "image": "python:3.11-slim"
+     }
+    }
+   }
+  },
+  "pipelineInfo": {
+   "name": "mlops-parallelfor-cache-spike"
+  },
+  "root": {
+   "dag": {
+    "tasks": {
+     "after": {
+      "cachingOptions": {},
+      "componentRef": {
+       "name": "comp-after"
+      },
+      "dependentTasks": [
+       "for-loop-2"
+      ],
+      "inputs": {
+       "parameters": {
+        "values": {
+         "taskOutputParameter": {
+          "outputParameterKey": "pipelinechannel--work-Output",
+          "producerTask": "for-loop-2"
+         }
+        }
+       }
+      },
+      "taskInfo": {
+       "name": "after"
+      }
+     },
+     "for-loop-2": {
+      "componentRef": {
+       "name": "comp-for-loop-2"
+      },
+      "iteratorPolicy": {
+       "parallelismLimit": 3
+      },
+      "parameterIterator": {
+       "itemInput": "pipelinechannel--loop-item-param-1",
+       "items": {
+        "raw": "[0, 1, 2]"
+       }
+      },
+      "taskInfo": {
+       "name": "for-loop-2"
+      }
+     }
+    }
+   }
+  },
+  "schemaVersion": "2.1.0",
+  "sdkVersion": "kfp-2.17.0"
+ },
+ "state": "PIPELINE_STATE_SUCCEEDED"
+}

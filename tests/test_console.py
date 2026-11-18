@@ -50,7 +50,7 @@ class FakeGcp:
             "startTime": "2026-10-14T01:00:20Z", "completionTime": "2026-10-14T01:05:00Z",
             "template": {"containers": [{"resources": {"limits": {"memory": "512Mi"}}}]}},
                           f"{P}/jobs/demo-j-py/executions/x2": {}}
-        self.series = []
+        self.series, self.traced, self.filters = [], [], []
         self.definition, self.labels = DEFINITION, {"mlops_bundle": "demo"}
         self.source = '- only: ${map.get(given, "only")}'
 
@@ -90,6 +90,9 @@ class FakeGcp:
         return self.objects[obj][1]
 
     def log_entries(self, flt, n=500):
+        self.filters.append(flt)
+        if "trace=" in flt:
+            return self.traced
         if "cloud_run_job" in flt:
             return [{"timestamp": "t", "textPayload": "hello", "labels": {
                 "run.googleapis.com/execution_name": "x2"}}]
@@ -408,6 +411,19 @@ def test_a_task_that_ran_a_runner_shows_what_the_runner_logged(gcp):
     assert S.task_run(gcp, "demo-j", "e3", "b")["attempts"][0]["job"] is None
     logs = S.task_logs(gcp, "demo-j", "e3", "b")
     assert [json.loads(line["text"]) for line in logs] == [{"event": "pipeline_started", "job": "pj-1"}]
+
+
+def test_a_runners_containers_show_by_the_runs_trace(gcp):
+    """No log of the run names the containers a runner starts: they're found by the run's
+    trace and the task's label (gcpbricks.tracing), each line's message unwrapped."""
+    _parent_run(gcp, "workflows/demo-vertex-pipeline/executions/v1")
+    gcp.traced = [{"timestamp": "2026-10-14T01:00:40Z", "jsonPayload": {
+        "message": "chunk 2026-10-19: predicting", "logging.googleapis.com/trace": "projects/p/traces/e3"},
+        "labels": {"run.googleapis.com/execution_name": "srv-1", "mlops_task": "b"}}]
+    logs = S.task_logs(gcp, "demo-j", "e3", "b")
+    assert logs[-1]["text"] == "chunk 2026-10-19: predicting" and logs[-1]["execution"] == "srv-1"
+    traced = [f for f in gcp.filters if "trace=" in f]
+    assert traced and 'trace="projects/p/traces/e3"' in traced[0] and 'labels.mlops_task="b"' in traced[0]
 
 
 def test_cancel_stops_a_child_run_too(gcp):

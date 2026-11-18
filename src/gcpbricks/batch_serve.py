@@ -2,27 +2,32 @@
 
 The task (terraform/modules/bundle/workflows/batch_serve.yaml) only starts each model's job
 over its window and waits; it reads nothing back. Scoring returns predictions, and what
-happens to them is the job's own code, as a Databricks batch inference notebook calls
-score_batch and then writes where it likes:
+happens to them is the job's own code, as a Databricks batch inference notebook runs
+score_batch over its spine and writes the result with one replaceWhere:
 
     from gcpbricks import batch_serve
+    from gcpbricks.features import FeatureStore
 
     w = batch_serve.window()                                  # the run's model, dates and start
-    model = batch_serve.load_model("models:/forecast_30d@champion")
-    for f, t in batch_serve.task_chunks(w.from_date, w.to_date, chunk_days=7):
-        rows = batch_serve.read_window("ml_feature_store.fs_demo_features", f, t,
-                                       date_col="snapshot_date", as_of_ms=w.started_ms)
-        preds = batch_serve.score_batch(model, rows, prediction_col="predicted_forecast_30d",
-                                        keep_columns=["snapshot_date", "campaign_id"])
-        # ... any post-processing ...
-        batch_serve.write_window(preds, "p.ml_predictions.forecast_30d_predictions", f, t,
-                                 date_col="snapshot_date", entity_id_columns=["snapshot_date", "campaign_id"],
-                                 prediction_col="predicted_forecast_30d")
+    model = batch_serve.load_model("models:/forecast_30d@champion")   # once per run
+    fs = FeatureStore()
+    for f, t in batch_serve.task_chunks(w.from_date, w.to_date):  # this Cloud Run task's dates
+        # The chunk's own spine: Staging refuses a prediction outside [f, t].
+        spine = fs.spine("fs_demo_features", where=f"snapshot_date BETWEEN '{f}' AND '{t}'")
+        rows = fs.create_training_set(spine, features)
+        with batch_serve.Staging("p.ml_predictions.forecast_30d_predictions", f, t,
+                                 date_col="snapshot_date", prediction_col="predicted_forecast_30d",
+                                 entity_id_columns=["snapshot_date", "campaign_id"]) as staged:
+            for batch in rows.iter_batches():                 # one query, one batch in memory
+                staged.add(batch_serve.score_batch(model, batch, prediction_col="predicted_forecast_30d",
+                                                   keep_columns=["snapshot_date", "campaign_id"]))
+            staged.publish()                                  # the window replaced, or not at all
         batch_serve.chunk_done(f, t)                          # a repair skips it
 
 A repair of a failed run (`mlops bundle repair`) runs a failed model again with the run's
-run_id, start and window, so task_chunks leaves out the chunks chunk_done noted; a model it
-is told to run again in full gets a new run_id, and so every chunk.
+run_id, start and window, so task_chunks leaves out the windows chunk_done noted; a model it
+is told to run again in full gets a new run_id, and so every window. A window is published
+whole or not at all, so a repair scores an unfinished one from its first batch.
 
 pandas, pyarrow and google-cloud-bigquery (the runtime image has them) are needed to read and
 write BigQuery.
@@ -34,7 +39,7 @@ import os
 import re
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Self
 
 from gcpbricks import job_labels
 
@@ -401,6 +406,128 @@ SELECT staged_rows AS rows_staged, written_rows AS rows_written;
 """
 
 
+class Staging:
+    """Predictions added batch by batch to a staging table beside `table`, then published in
+    one write, as Databricks writes score_batch's result with one replaceWhere or MERGE: the
+    window is replaced (or its rows inserted) whole or not at all, and memory holds one batch.
+
+      with Staging(table, from_date, to_date, ...) as staged:
+          for batch in batches:
+              staged.add(predictions_of(batch))
+          staged.publish()
+
+    add() checks each batch as write() checks a DataFrame; publish() runs write()'s script for
+    `mode` over every batch, whose checks then see the whole window (a key repeated across
+    batches too). Leaving the block without publishing drops the staging table, which expires
+    in a day regardless. Arguments as write()'s."""
+
+    def __init__(self, table: str, from_date: str, to_date: str, *, entity_id_columns: list[str],
+                 prediction_col: str, date_col: str, mode: str = "replace_window",
+                 keys: list[str] | None = None, stamps: dict | None = None,
+                 min_keep_ratio: float = 0.5, partition_by: str | None = None,
+                 cluster_by: list[str] | None = None, project: str | None = None, log=print):
+        if mode not in MODES:
+            raise ValueError(f"write mode {mode!r}: one of {MODES}")
+        if mode in ("insert_new", "merge") and not keys:
+            raise ValueError(f"write mode {mode}: give the keys it writes by")
+        self.table, self.from_date, self.to_date = table, from_date, to_date
+        self.entity_id_columns, self.prediction_col, self.date_col = entity_id_columns, prediction_col, date_col
+        self.mode, self.keys, self.stamps = mode, keys, stamps or {}
+        self.min_keep_ratio, self.partition_by, self.cluster_by = min_keep_ratio, partition_by, cluster_by
+        self.project, self.log = project, log
+        dataset, name = table.rsplit(".", 1)
+        self.staging = f"{dataset}._stg_{name}_{uuid.uuid4().hex[:12]}"
+        # One scored_at for the run's rows, whichever batch they came in.
+        self.scored_at = datetime.now(UTC)
+        self.rows = 0
+        self.columns: list[str] | None = None
+        self._schema = None
+        self._client = None
+        self._published = False
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc) -> None:
+        if not self._published:
+            self.discard()
+
+    def add(self, df) -> None:
+        """Checks df's predictions and appends them to the staging table; an empty df adds nothing."""
+        if not len(df):
+            return
+        import pandas as pd
+        from google.cloud import bigquery
+
+        df = df.assign(**self.stamps)
+        check_predictions(df, prediction_col=self.prediction_col, entity_id_columns=self.entity_id_columns,
+                          from_date=self.from_date, to_date=self.to_date, date_col=self.date_col,
+                          keys=self.keys if self.mode not in ("replace_window", "append") else None)
+        if self.columns is not None and list(df.columns) != self.columns:
+            raise ValueError(f"a batch's columns {list(df.columns)} are not the first batch's {self.columns}")
+        out = df.copy()
+        out[self.date_col] = pd.to_datetime(out[self.date_col]).dt.date
+        if "predicted_at" in out.columns:
+            out["predicted_at"] = pd.to_datetime(out["predicted_at"], utc=True)
+        out["scored_at"] = pd.Timestamp(self.scored_at)
+        client = self._bigquery()
+        # Later batches load to the first one's schema: a column all NULL in one batch keeps its type.
+        config = (bigquery.LoadJobConfig(schema=self._schema, write_disposition="WRITE_APPEND")
+                  if self._schema is not None else None)
+        client.load_table_from_dataframe(out, self.staging, job_config=config).result()
+        if self._schema is None:
+            t = client.get_table(self.staging)
+            t.expires = datetime.now(UTC) + timedelta(days=1)
+            client.update_table(t, ["expires"])
+            self._schema, self.columns = t.schema, list(df.columns)
+        self.rows += len(df)
+
+    def publish(self) -> dict:
+        """Writes every added batch to the table as `mode` says, in one script; returns its row
+        counts. Nothing added: nothing written."""
+        from google.cloud import bigquery
+
+        span = f"{self.table} {self.from_date}..{self.to_date}"
+        if not self.rows:
+            self._published = True
+            if self.mode == "replace_window":
+                self.log(f"{span}: no predictions, nothing replaced")
+                return {"rows_staged": 0, "rows_replaced": 0, "rows_deleted": 0, "rows_inserted": 0}
+            self.log(f"{span}: no predictions, nothing written")
+            return {"rows_staged": 0, "rows_written": 0}
+        params = {"from_date": ("DATE", self.from_date), "to_date": ("DATE", self.to_date)}
+        if self.mode == "replace_window":
+            sql = replace_window_sql(target=self.table, staging=self.staging, date_col=self.date_col,
+                                     entity_id_columns=self.entity_id_columns, prediction_col=self.prediction_col,
+                                     partition_by=self.partition_by, cluster_by=self.cluster_by)
+            params["min_keep_ratio"] = ("FLOAT64", self.min_keep_ratio)
+        else:
+            columns = [*self.columns, *([] if "scored_at" in self.columns else ["scored_at"])]
+            sql = insert_sql(target=self.table, staging=self.staging, date_col=self.date_col, mode=self.mode,
+                             keys=self.keys or [], columns=columns, prediction_col=self.prediction_col,
+                             partition_by=self.partition_by, cluster_by=self.cluster_by)
+        job = self._bigquery().query(sql, job_config=bigquery.QueryJobConfig(query_parameters=[
+            bigquery.ScalarQueryParameter(name, kind, value) for name, (kind, value) in params.items()]))
+        counts = dict(next(iter(job.result())).items())
+        # The script drops the staging table once it has written.
+        self._published = True
+        if self.mode == "replace_window":
+            self.log(f"{span}: replaced {counts['rows_deleted']} rows with {counts['rows_inserted']}")
+        else:
+            self.log(f"{span}: {self.mode} wrote {counts['rows_written']} of {counts['rows_staged']} rows")
+        return counts
+
+    def discard(self) -> None:
+        """Drops the staging table: nothing published."""
+        if self._schema is not None:
+            self._bigquery().delete_table(self.staging, not_found_ok=True)
+
+    def _bigquery(self):
+        if self._client is None:
+            self._client = job_labels.bigquery_client(project=self.project)
+        return self._client
+
+
 def write_window(df, table: str, from_date: str, to_date: str, *, entity_id_columns: list[str],
                  prediction_col: str, min_keep_ratio: float = 0.5, date_col: str,
                  partition_by: str | None = None, cluster_by: list[str] | None = None,
@@ -410,20 +537,9 @@ def write_window(df, table: str, from_date: str, to_date: str, *, entity_id_colu
     creating the table on the first write. Refuses a batch the checks reject or one with
     fewer rows than min_keep_ratio x the rows it replaces. An empty df changes nothing.
     Reruns replace, never duplicate. Returns the row counts."""
-    if not len(df):
-        log(f"{table} {from_date}..{to_date}: no predictions, nothing replaced")
-        return {"rows_staged": 0, "rows_replaced": 0, "rows_deleted": 0, "rows_inserted": 0}
-    check_predictions(df, prediction_col=prediction_col, entity_id_columns=entity_id_columns,
-                      from_date=from_date, to_date=to_date, date_col=date_col)
-    counts = _run_staged(
-        df, table, date_col, project,
-        lambda staging: replace_window_sql(target=table, staging=staging, date_col=date_col,
-                                           entity_id_columns=entity_id_columns, prediction_col=prediction_col,
-                                           partition_by=partition_by, cluster_by=cluster_by),
-        {"from_date": ("DATE", from_date), "to_date": ("DATE", to_date),
-         "min_keep_ratio": ("FLOAT64", min_keep_ratio)})
-    log(f"{table} {from_date}..{to_date}: replaced {counts['rows_deleted']} rows with {counts['rows_inserted']}")
-    return counts
+    return write(df, table, from_date, to_date, entity_id_columns=entity_id_columns,
+                 prediction_col=prediction_col, min_keep_ratio=min_keep_ratio, date_col=date_col,
+                 partition_by=partition_by, cluster_by=cluster_by, project=project, log=log)
 
 
 def write(df, table: str, from_date: str, to_date: str, *, entity_id_columns: list[str],
@@ -442,57 +558,11 @@ def write(df, table: str, from_date: str, to_date: str, *, entity_id_columns: li
 
     `stamps` ({column: value}, e.g. the run's date) is set on every row first. The table is
     created on the first write, partitioned by partition_by (default date_col) and clustered
-    by cluster_by (default model_id), and gains the columns df brings. Returns the row counts."""
-    if mode not in MODES:
-        raise ValueError(f"write mode {mode!r}: one of {MODES}")
-    df = df.assign(**(stamps or {}))
-    if mode == "replace_window":
-        return write_window(df, table, from_date, to_date, entity_id_columns=entity_id_columns,
-                            prediction_col=prediction_col, min_keep_ratio=min_keep_ratio,
-                            date_col=date_col, partition_by=partition_by, cluster_by=cluster_by,
-                            project=project, log=log)
-    if mode in ("insert_new", "merge") and not keys:
-        raise ValueError(f"write mode {mode}: give the keys it writes by")
-    if not len(df):
-        log(f"{table} {from_date}..{to_date}: no predictions, nothing written")
-        return {"rows_staged": 0, "rows_written": 0}
-    check_predictions(df, prediction_col=prediction_col, entity_id_columns=entity_id_columns,
-                      from_date=from_date, to_date=to_date, date_col=date_col,
-                      keys=keys if mode != "append" else None)
-    columns = [*df.columns, *([] if "scored_at" in df.columns else ["scored_at"])]
-    counts = _run_staged(
-        df, table, date_col, project,
-        lambda staging: insert_sql(target=table, staging=staging, date_col=date_col, mode=mode,
-                                   keys=keys or [], columns=columns, prediction_col=prediction_col,
-                                   partition_by=partition_by, cluster_by=cluster_by),
-        {"from_date": ("DATE", from_date), "to_date": ("DATE", to_date)})
-    log(f"{table} {from_date}..{to_date}: {mode} wrote {counts['rows_written']} of {counts['rows_staged']} rows")
-    return counts
-
-
-def _run_staged(df, table: str, date_col: str, project: str | None, sql_for, params: dict) -> dict:
-    """df loaded into a staging table beside `table` (expiring in a day), then the script
-    sql_for(staging) run with `params` ({name: (type, value)}); its last SELECT's row."""
-    import pandas as pd
-    from google.cloud import bigquery
-
-    out = df.copy()
-    out[date_col] = pd.to_datetime(out[date_col]).dt.date
-    if "predicted_at" in out.columns:
-        out["predicted_at"] = pd.to_datetime(out["predicted_at"], utc=True)
-    out["scored_at"] = pd.Timestamp(datetime.now(UTC))
-
-    client = job_labels.bigquery_client(project=project)
-    staging = f"{table.rsplit('.', 1)[0]}._stg_{table.rsplit('.', 1)[1]}_{uuid.uuid4().hex[:12]}"
-    client.load_table_from_dataframe(out, staging).result()
-    try:
-        # A failed write leaves no staging table for long.
-        t = client.get_table(staging)
-        t.expires = datetime.now(UTC) + timedelta(days=1)
-        client.update_table(t, ["expires"])
-        job = client.query(sql_for(staging), job_config=bigquery.QueryJobConfig(query_parameters=[
-            bigquery.ScalarQueryParameter(name, kind, value) for name, (kind, value) in params.items()]))
-        return dict(next(iter(job.result())).items())
-    except Exception:
-        client.delete_table(staging, not_found_ok=True)
-        raise
+    by cluster_by (default model_id), and gains the columns df brings. Returns the row counts.
+    One DataFrame's Staging: a window scored batch by batch stages each batch instead."""
+    with Staging(table, from_date, to_date, entity_id_columns=entity_id_columns,
+                 prediction_col=prediction_col, date_col=date_col, mode=mode, keys=keys, stamps=stamps,
+                 min_keep_ratio=min_keep_ratio, partition_by=partition_by, cluster_by=cluster_by,
+                 project=project, log=log) as staged:
+        staged.add(df)
+        return staged.publish()

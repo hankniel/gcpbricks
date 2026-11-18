@@ -241,13 +241,15 @@ def test_declaring_a_retired_resource_again_lifts_its_label(tmp_path):
 def test_retiring_keeps_the_other_labels_and_the_first_date():
     sdk = object.__new__(ml.VertexSdk)
     sdk.project, sdk.location = "p", "r"
-    store = {"labels": {"mlflow_run_id": "x"}}
+    store = {"schemaTitle": "system.Experiment", "labels": {"mlflow_run_id": "x"}}
     patched = []
 
     def rest(method, resource, **kw):
         r = type("R", (), {"status_code": 200, "raise_for_status": lambda self: None,
                            "json": lambda self: dict(store)})()
         if method == "PATCH":
+            # Vertex refuses a context's PATCH without its schemaTitle (400).
+            assert kw["json"]["schemaTitle"] == "system.Experiment"
             store["labels"] = kw["json"]["labels"]
             patched.append(kw["json"]["labels"])
         return r
