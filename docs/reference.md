@@ -1128,6 +1128,13 @@ each tool call unless you allow it.
    `inputs: {platform_version: "<version>"}` and set `mlops_version` to it; a pinned bundle
    moves by its own MR. Either way, add the project to gcpbricks's CI/CD job token
    allowlist, so its jobs can install the package with `CI_JOB_TOKEN`.
+
+   That component is for GitLab CI. Any other CI (GitHub Actions, Cloud Build, Jenkins, ...)
+   runs the same commands in its own job: install `gcpbricks`, then `mlops bundle validate`
+   on a change and `mlops bundle deploy -t <target>` on the main branch. What a deploy records
+   (its commit, branch, links and who deployed) comes from GitLab CI's or GitHub Actions'
+   own variables; on another CI, set `MLOPS_COMMIT`, `MLOPS_BRANCH`, `MLOPS_COMMIT_URL`,
+   `MLOPS_PIPELINE_URL` and `MLOPS_ACTOR` (`gcpbricks.ci`). Outside CI, git and `$USER`.
 3. That's all the project carries: no terraform. `mlops bundle deploy -t <target>` applies
    the jobs' infrastructure (Workflows, the Cloud Run jobs, schedulers, triggers, alerts)
    with the terraform module this version ships, as Databricks' CLI does, keeping the state
