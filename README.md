@@ -66,6 +66,8 @@ keep alive between runs. The reasoning and trade-offs are in [docs/idea.md](docs
   over a window).
 - **CLI**: `mlops bundle validate | summary | render | deploy | run | runs | repair | why |
   task | logs | redeploy | destroy`. A manual run sends exactly what the scheduler sends.
+  Outside a bundle, `mlops inspect LINK` and Databricks CLI-style groups (`jobs`, `tables`,
+  `registered-models`, `quality-monitors`, ...) work over every deployed bundle.
 - **Repairs like Databricks**: re-run only the failed (or picked) tasks of a run, as another
   attempt of the same run; a Vertex pipeline task reruns only its failed steps.
 - **ML resources**: `experiments`, `registered_models`, `model_serving_endpoints` applied on
@@ -73,8 +75,12 @@ keep alive between runs. The reasoning and trade-offs are in [docs/idea.md](docs
   Registry.
 - **Feature store SDK**: feature groups declared in dbt (`meta.feature_store`), read through
   an Ibis-compiled engine for BigQuery, Spark or DuckDB, with point-in-time training sets.
+- **Quality monitors**: `quality_monitors` as Databricks' data profiling, run in BigQuery
+  (column statistics, model quality, drift, custom metrics per window and slice), plus
+  anomaly detection on those metrics (BigQuery's TimesFM or a z-score).
 - **Console**: a FastAPI + React app behind IAP: jobs, runs, task graphs, "why it failed",
-  repair dialog, notebooks, bundles, costs, models, endpoints and a feature catalog.
+  repair dialog, notebooks, bundles, costs (with BigQuery cost traced to jobs, tables and
+  models), models, endpoints, a feature catalog and each table's Quality tab.
 
 ## Try it locally
 

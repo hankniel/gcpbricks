@@ -26,9 +26,11 @@ Notes on wording: "the platform" is this repo; "a project" is a repo that carrie
 | `src/gcpbricks/targets.py` | Target namespacing: prod at the root, other targets under their name |
 | `src/gcpbricks/content_hash.py` | AST hash of `.py` files, for content-addressed tags and retrain keys |
 | `src/gcpbricks/import_graph.py` | Files a set of entrypoints can import, read with `ast` |
-| `src/gcpbricks/batch_serve.py` | A `batch_serve_task` model job's building blocks: its window, `score_batch`, `write` (`write_window`, append, insert_new, merge), `scored_keys` |
+| `src/gcpbricks/batch_serve.py` | A `batch_serve_task` model job's building blocks: its window, `score_batch`, `Staging` (batches staged, one publish), `write` (`write_window`, append, insert_new, merge), `scored_keys` |
 | `src/gcpbricks/features.py` | The feature store SDK (`[features]` extra): Tecton's and Databricks Feature Engineering's workflow over dbt-features's feature groups as feature views, on its own Ibis-compiled query engine for BigQuery, Spark and DuckDB |
 | `src/gcpbricks/feature_config.py` | `mlops-features render`: the feature groups dbt-features declares (`meta.feature_store`), as the JSON the SDK reads |
+| `src/gcpbricks/monitors.py` | `resources.quality_monitors`: Databricks' data profiling on BigQuery, the refresh job each monitor becomes, the SQL its refresh runs, and its `anomaly_detection` |
+| `src/gcpbricks/anomalies.py` | The anomaly detector: a metric series' expected range from its history, by BigQuery's TimesFM (`AI.DETECT_ANOMALIES`) or a z-score |
 | `src/gcpbricks/feature_manager/` | Feature engineering declared in a model's `features.yaml` (`[feature-manager]` extra): compiled into a fitted sklearn transformer the model pickles with its estimator |
 | `terraform/modules/bundle` | Per target: one Workflow per job, one Cloud Run job per job cluster (plus the dbt job), the runner Workflows `vertex_pipeline_task` / `batch_serve_task` call, one scheduler per scheduled job, log sinks and run-failed alerts |
 | `terraform/modules/bundle/workflows/` | `job.yaml` (run a job's tasks), `vertex_pipeline.yaml` (run the last published pipeline), `batch_serve.yaml` (run each model over its window), `trigger.yaml` (check table_update / file_arrival triggers), `wake.yaml` (check a file_arrival trigger on a GCS event), `watchdog.yaml` (warn on long runs) |
@@ -239,10 +241,29 @@ tasks:
       base_parameters: {model: forecast_30d}
 ```
 
-Deploy sets `MLOPS_BUNDLE_FILES`, `MLOPS_BUNDLE_VERSION` and the MLflow env on every step
-container of the environment's image; the runtime image's `sitecustomize` then puts exactly
-that deploy's files on `sys.path` as Python starts. A step that is not such a container (a
-CustomJob's worker pool) takes `pipelines.step_env()` into its own env. The run's display
+Deploy sets `MLOPS_BUNDLE_FILES` and the MLflow env on every step container of the
+environment's image; the runtime image's `sitecustomize` then puts the run's deploy's files on
+`sys.path` as Python starts. Which deploy is the run's label `mlops_bundle_version` (the runner
+sets it from the published `current.json`), not the spec: Vertex hands every step, custom jobs
+included, its run's labels, and a step's spec is its cache key, so a deploy doesn't change what a
+repair finds cached. A step that is not such a container (a CustomJob's worker pool) takes
+`pipelines.step_env()` into its own env.
+
+**Fan-out: `dsl.ParallelFor`, as a Databricks `for_each_task`.** A step that runs once per item,
+each on its own machine (a custom job per iteration), is KFP's own loop; the platform reads it
+as Databricks reads a for_each_task:
+
+| Databricks `for_each_task` | A `dsl.ParallelFor` here |
+|---|---|
+| `inputs`, `concurrency`, the nested `task` | `dsl.ParallelFor(items, parallelism=)` over a step; `dsl.Collected(...)` gathers the outputs |
+| the nested task's `max_retries`, `min_retry_interval_millis` | the step's `.set_retry(num_retries=, backoff_duration=)` |
+| fails once every iteration ran, if any failed; dependents don't run | the same (a failed iteration lets the others finish; steps after the loop are `NOT_TRIGGERED`) |
+| the run graph's for-each node and its Iterations table | the console draws the loop as a for-each node; its panel lists each iteration's state, time and steps |
+| an iteration's output and logs | a step of iteration *i* is `step[i]`: `mlops bundle task` lists them, `mlops bundle logs ... --step work[2]`, the MCP's `task_logs(step="work[2]")` |
+| Repair reruns the failed iterations only, on the job's current code | the same, through the cache: Vertex's rerun keeps a loop's succeeded iterations only by their cached result, so keep caching on for a fanned-out step (KFP's default); a deploy since keeps them (above), a changed step (its code, image or inputs) runs again |
+| `why` names the failed iteration | `mlops bundle why` / `inspect` / the console's "Why it failed" follow a failed iteration to its custom job's error and log lines |
+
+A loop inside a loop, or a condition inside a loop, lists its outer iterations only. The run's display
 name, labels, `pipeline_root` (`gs://<bucket>/<target prefix>.bundle/<bundle>/pipeline_root/`)
 and service account (`run_as`) are the platform's; the spec lives under
 `.bundle/<bundle>/pipelines/<job>-<task_key>` unless `spec_prefix` says otherwise.
@@ -505,6 +526,174 @@ Each deploy also writes `deployment.json` beside the job definitions (as Databri
 target): the code version, the platform that deployed it, when and by whom, and every resource
 with its name on the target. The console's Bundles page reads it.
 
+## Quality monitors
+
+Databricks' data profiling (formerly Lakehouse Monitoring), with its bundle resource's keys:
+a monitor profiles a table on a schedule into two metric tables, Databricks' columns and keys,
+that the console's Quality tab (Catalog › table) shows and any BI tool can read. On top of
+them, our own `anomaly_detection` finds anomalies in those metrics per slice.
+
+What is covered, and whose interface it is:
+
+| | Interface | Status |
+|---|---|---|
+| Data profiling: column statistics, model quality (probabilities, fairness), drift, custom metrics (aggregate, derived, drift), per window × model × slice | Databricks' `quality_monitors` keys | Built |
+| `lookback_days`: how far back a refresh recomputes | ours (Databricks fixes 30 days) | Built |
+| Anomalies in a monitor's metrics per slice (a day's cost dropping in one country, a column going null) | ours: `anomaly_detection` (Databricks has no such feature; its users write SQL alerts with fixed thresholds) | Built |
+| Console: a table's Quality tab (an overview with Configure, Refresh metrics, View refresh history and View dashboard; a monitor deployed but never refreshed shown as set up, with what it will write; a monitor of a view shown on the tables the view reads (a dry run resolves them); a deleted monitor's metric tables still in BigQuery named; Create monitor and Update profile dialogs that give the bundle's YAML) and each monitor's dashboard (`/quality/<bundle>/<target>/<key>`: health over time, model performance by slice, drift down to a column's distribution, data integrity, fairness, anomalies) | Databricks' Catalog Quality tab and dialogs; our own dashboard | Built |
+| Alerts on anomalies, a cross-table data quality page, schema-level freshness and completeness | Databricks' `on_unhealthy_table`, anomaly results page, `data_quality_monitors` | Not yet |
+
+```yaml
+resources:
+  quality_monitors:
+    forecast:
+      table_name: my-gcp-project.ml_monitoring.forecast_30d_inference   # project.dataset.table
+      output_schema_name: my-gcp-project.ml_monitoring             # project.dataset
+      baseline_table_name: my-gcp-project.ml_monitoring.forecast_30d_validation
+      slicing_exprs: [geo, platform, "cost > 1000"]
+      lookback_days: 45                                # ours, not Databricks': d30 labels come late
+      inference_log:
+        problem_type: PROBLEM_TYPE_REGRESSION          # or PROBLEM_TYPE_CLASSIFICATION
+        prediction_col: predicted_forecast_30d
+        label_col: forecast_30d                            # may stay NULL until labels arrive
+        model_id_col: model_id
+        timestamp_col: scored_at
+        granularities: ["1 day", "1 week"]
+      custom_metrics:
+        - {type: CUSTOM_METRIC_TYPE_AGGREGATE, name: bias, input_columns: [":table"],
+           definition: "avg({{prediction_col}} - {{label_col}})", output_data_type: double}
+      schedule: {quartz_cron_expression: "0 0 6 * * ?", timezone_id: UTC}
+      notifications: {on_failure: {email_addresses: [user@example.com]}}
+```
+
+- **Created in the console** (the Quality tab's Create monitor, a monitor name and target picked):
+  the console deploys it in its own bundle, `console-monitors`, on the settings of the bundle the
+  console's `MLOPS_MONITORS_SETTINGS_FROM` names, for that target (project, region, bucket, mode,
+  `run_as`: the refresh jobs run as that bundle's account). Unset, the console creates none.
+  The deploy (`console.monitor_deploy`, `mlops bundle deploy` in a child process) acts as whoever
+  acts, as the console's other writes: a user with their own GCP access ("Allow GCP access"), so
+  their roles decide; an admin as the console's own account. Its Configure updates and deletes it
+  the same way (a deleted monitor's refresh job is retired, its metric tables stay). A monitor a
+  project's bundle declares is changed in that bundle: the dialog gives its YAML.
+- **Profile types** as Databricks': `inference_log` (a model's predictions: column statistics
+  plus model quality, per `model_id_col` and all models together), `time_series` (column
+  statistics per window) or `snapshot` (the whole table at each refresh).
+- **What the table is** is the project's: for a batch model, a view (dbt) joining its
+  predictions to the labels as they arrive. The baseline is a table of the same columns, e.g.
+  the validation set scored by the model that trained on it.
+- **The refresh** is a job, `<key>-monitor`, that deploy adds to the bundle: it runs on the
+  monitor's `schedule` (paused in development mode, as every dev schedule), from
+  `mlops bundle run <key>-monitor`, from the Quality tab's *Refresh metrics*, or from another
+  job's `run_job_task` (`job_id: ${resources.jobs.<key>-monitor.id}`), which is Databricks'
+  `run_refresh` at the end of the job that writes the table. `notifications.on_failure` is its
+  failure email. Its runs, logs and retries are any job's.
+- **What a refresh computes, in BigQuery.** One scan per granularity of the lookback (30 days,
+  Databricks' own, and one window before it), grouped by window × model × slice, and one of the
+  baseline, staged in the output schema; then one script computes drift and replaces what it
+  recomputed in both tables in a transaction. Nothing but SQL text leaves BigQuery, so a
+  400-column table refreshes on the job's smallest Cloud Run size.
+  - `<table>_profile_metrics`: per column, `count`, `num_nulls`, `avg`, `quantiles` (100, not
+    Databricks' 1000), `distinct_count`, `min`, `max`, `stddev`, `median`, `frequent_items` (top
+    100), string lengths, `percent_null` / `_zeros` / `_distinct`; per `:table`, the row count,
+    `non_null_columns` and model quality: MSE, RMSE, `mean_average_error` (sic, Databricks'
+    name), MAPE and R² for regression; accuracy, the confusion matrix, and per-class precision,
+    recall and F1 (one-vs-all, macro, weighted) for classification. With
+    `prediction_proba_col`, a classifier's `log_loss` (probabilities clipped to float64's
+    epsilon, as sklearn's) and `roc_auc_score` (sklearn's one-vs-one over the labels present,
+    `macro` and pair-prevalence `weighted`; exact, ties counting half). Fairness and bias for
+    a classifier sliced by a true/false expression: `predictive_parity` (precision),
+    `predictive_equality` (false positive rate), `equal_opportunity` (recall), over the
+    labelled rows, and `statistical_parity` (acceptance rate: the share of every prediction,
+    labelled or not, that is the class). `log_type` is `INPUT` or `BASELINE`; `slice_key` NULL
+    is the whole table, `model_id` NULL all models.
+  - `<table>_drift_metrics`: each window against the one before it (`CONSECUTIVE`) and against
+    the baseline (`BASELINE`): count, average, null, zero and distinct deltas; for numbers, the
+    Kolmogorov-Smirnov test, Wasserstein distance and PSI (from the quantiles: PSI ≥ 0.2 is
+    significant); for categories, the chi-squared test, total variation, L-infinity and
+    Jensen-Shannon distance (from the frequent items, the rest pooled).
+- **Late labels.** Every refresh recomputes the whole lookback, so a window's model quality
+  fills in as its labels arrive. Databricks reads only new rows (change data feed); BigQuery
+  has none, and the monitored table is usually a view. A window older than the lookback keeps
+  what the last refresh that covered it wrote. The lookback is Databricks' 30 days unless
+  `lookback_days` (gcpbricks' own key, 1 to 366, not for a snapshot) says otherwise:
+  set it past the labels' delay, e.g. `lookback_days: 45` for a 30-day forecast, whose labels arrive
+  30 days after the prediction. A longer lookback scans proportionally more each refresh.
+- **Anomalies in the metrics** (`anomaly_detection`, gcpbricks' own key: Databricks'
+  anomaly detection is schema-level row counts only). After each refresh, every watched
+  metric's series (one per granularity × model_id × slice × column) is judged on its latest
+  `detection_windows` finished windows, against the range its own history expects, into
+  `<table>_anomalies` (`window`, the group, `metric`, `value`, `lower_bound`, `upper_bound`,
+  `anomaly_probability`, `is_anomaly`, `status`: Healthy, Unhealthy, Training, Error). A
+  window missing from a `count` series (a slice with no rows) counts 0, so a slice that
+  vanishes is caught. The Quality tab shows each series' latest status and its history:
+
+  ```yaml
+  slicing_exprs: [country]
+  custom_metrics:
+    - {type: CUSTOM_METRIC_TYPE_AGGREGATE, name: cost_sum, input_columns: [":table"],
+       definition: "SUM(cost)", output_data_type: double}
+  anomaly_detection:
+    metrics: [count, cost_sum]         # numeric profile or custom metrics
+    columns: [":table"]                # the default; or column names (their null %, avg, ...)
+    detection_windows: 2               # the latest finished windows each refresh judges
+    model: TimesFM 2.5                 # the default; TimesFM 3.0, or zscore
+    direction: both                    # both (default), drop or spike
+    anomaly_prob_threshold: 0.95       # TimesFM: higher, wider bounds
+    min_history: 7                     # history points before a series is judged
+    # zscore: sensitivity (3), training_points (14), seasonality: day_of_week
+  ```
+
+  `TimesFM` is BigQuery's `AI.DETECT_ANOMALIES`, Google's pretrained forecasting model: no
+  training, trend and weekly patterns learnt from each series' history, billed at BigQuery
+  ML's prediction rate on the (small) metric rows. `zscore` is Elementary's: mean ±
+  `sensitivity` standard deviations of the last `training_points` points (with `seasonality:
+  day_of_week`, of the same weekday). The window still in progress is never judged.
+- **Schedule and cost.** A monitor runs on its Databricks `schedule` (quartz cron), or from
+  the job that writes its table (`run_job_task`); its anomaly detection runs at the end of each
+  refresh, so it has no schedule of its own. What a refresh bills is the scan: every column of
+  the table over the lookback (Databricks profiles every column; there is no column list), each
+  refresh. The anomaly step reads only the metric table. So for a table whose rows don't change
+  after they land (events, costs), set a short `lookback_days` (2–3): windows older than it stay
+  in the metric table, so anomaly history still grows. Keep the lookback past the labels' delay
+  for model quality (45 for a 30-day forecast). A new monitor with a short lookback has little history:
+  its series are Training until `min_history` windows exist.
+- **`monitor_version`** counts configuration changes (kept beside the bundle's job definitions);
+  rows written under an older configuration keep their version, as Databricks'.
+- **Probabilities**: `prediction_proba_col` is Databricks' map from class label to probability,
+  as BigQuery holds a map: `ARRAY<STRUCT<key STRING, value FLOAT64>>` (`[('0', 0.2), ('1', 0.8)]`),
+  its keys the labels as strings. A label a row's probabilities don't name counts as
+  probability 0. They're used as given, not renormalized.
+- **Fairness and bias**, Databricks' way: a slicing expression that is true or false
+  (`"age < 25"`, `is_new_user`) splits the rows into the protected group (`true`) and the
+  unprotected one (`false`). Each fairness column is per class (one-vs-all, as
+  `ARRAY<STRUCT<key, value>>`, Databricks' map), on the `:table` row of the `true` slice, as
+  protected minus unprotected: 0 is parity. Databricks doesn't publish its formulas: the
+  difference is ours (its docs call statistical parity a difference). A class one group can't
+  have a rate for (no row of it predicted the class, say) is NULL.
+- **Custom metrics**: `CUSTOM_METRIC_TYPE_AGGREGATE` (a BigQuery SQL aggregate,
+  `{{input_column}}`, `{{prediction_col}}` and `{{label_col}}` filled in) and
+  `CUSTOM_METRIC_TYPE_DERIVED` (an expression over other metrics of the row), each a column of
+  the profile table; `CUSTOM_METRIC_TYPE_DRIFT`, an expression comparing an aggregate or
+  derived metric of a window's row (`{{current_df}}`) with the row it is compared with
+  (`{{base_df}}`: the window before it, or the baseline), a column of the drift table on its
+  `input_columns`' rows:
+
+  ```yaml
+  - {type: CUSTOM_METRIC_TYPE_DRIFT, name: bias_delta, input_columns: [":table"],
+     definition: "{{current_df}}.bias - {{base_df}}.bias", output_data_type: double}
+  ```
+
+  `output_data_type` is Spark's type name or its StructField JSON.
+- A slicing expression is BigQuery SQL over the monitored table's columns; a baseline that
+  lacks one's columns is profiled without slices. `assets_dir` is accepted and unused: the
+  console shows the metrics. Statistics are computed differently from Databricks (BigQuery's
+  approximate quantiles and top counts), so they are close to, not equal to, its numbers.
+
+The refresh's service account (`run_as`) reads the monitored and baseline tables and needs
+BigQuery Data Editor on the output dataset (it creates the metric tables on its first
+refresh); its queries run where the tables are. The console reads the metric tables as its
+own account, under a 200 MiB billing cap per read.
+
 ## Jobs across repos
 
 Each repo is its own bundle. To run another repo's job as a step, a job looks it up by
@@ -576,26 +765,37 @@ optional, as a Databricks batch inference notebook calls `score_batch` and write
 
 ```python
 from gcpbricks import batch_serve
+from gcpbricks.features import FeatureStore
 
 w = batch_serve.window()                                     # the model, FROM_DATE, TO_DATE, the run's start
-model = batch_serve.load_model("models:/forecast_30d@champion")  # resolved once per run
-for f, t in batch_serve.task_chunks(w.from_date, w.to_date, chunk_days=7):   # this Cloud Run task's share
-    rows = batch_serve.read_window("ml_feature_store.fs_demo_features", f, t,
-                                   date_col="snapshot_date", as_of_ms=w.started_ms)
-    preds = batch_serve.score_batch(model, rows, prediction_col="predicted_forecast_30d",
-                                    keep_columns=["snapshot_date", "campaign_id"])
-    # ... the model's own post-processing ...
-    batch_serve.write_window(preds, "my-gcp-project.ml_predictions.forecast_30d_predictions",
-                             f, t, date_col="snapshot_date", entity_id_columns=["snapshot_date", "campaign_id"],
-                             prediction_col="predicted_forecast_30d")
+model = batch_serve.load_model("models:/forecast_30d@champion")  # resolved and loaded once per run
+for f, t in batch_serve.task_chunks(w.from_date, w.to_date):   # this Cloud Run task's dates
+    rows = FeatureStore().create_training_set(spine(f, t), features)   # the window's keys, features joined
+    with batch_serve.Staging("my-gcp-project.ml_predictions.forecast_30d_predictions", f, t,
+                             date_col="snapshot_date", entity_id_columns=["snapshot_date", "campaign_id"],
+                             prediction_col="predicted_forecast_30d") as staged:
+        for batch in rows.iter_batches():                    # one query, one batch in memory
+            preds = batch_serve.score_batch(model, batch, prediction_col="predicted_forecast_30d",
+                                            keep_columns=["snapshot_date", "campaign_id"])
+            # ... the model's own post-processing ...
+            staged.add(preds)
+        staged.publish()                                     # the window written whole, or not at all
     batch_serve.chunk_done(f, t)                             # a repair of this run skips it
 ```
 
 - `score_batch` returns a DataFrame (the kept columns, the prediction, `model_id`,
   `predicted_at`) and writes nothing.
-- `read_window(..., as_of_ms=w.started_ms)` pins a read to the run's start (BigQuery time
-  travel), the same moment for every model and Cloud Run task of the run, so every chunk
-  reads the same version of the features.
+- `TrainingSet.iter_batches()` streams one query's rows as DataFrames (about
+  `ROW_GROUP_ROWS` each), as Databricks' `score_batch` feeds a model Arrow batches: every batch
+  reads the same version of the tables, with no time travel, and memory holds one batch, however
+  long the window or wide the row. A model scored this way must give each row the prediction it
+  gets in any batch.
+- `Staging(table, f, t, ...)` takes `write()`'s arguments: `add(preds)` checks a batch and
+  appends it to a staging table beside `table`, `publish()` writes them all in one `write()`
+  script, whose checks then see the whole window. Leaving the block unpublished drops the
+  staging table, so a failed run changes nothing.
+- `read_window(..., as_of_ms=w.started_ms)` reads one BigQuery table's window, pinned to the
+  run's start (time travel); a read in several queries needs it to see one version.
 - `write(preds, table, f, t, mode=w.output.get("mode", "replace_window"), keys=..., stamps=...)`
   writes as a Databricks job writes its Delta table: `replace_window` is `write_window` below;
   `append` inserts every row; `insert_new` inserts only rows whose `keys` the table lacks (a
@@ -612,11 +812,12 @@ for f, t in batch_serve.task_chunks(w.from_date, w.to_date, chunk_days=7):   # t
   model_id) in one transaction, creating the table on the first write and adding new columns.
   It checks first (columns, model_id, inside the window, finite, unique keys) and refuses a
   batch with fewer rows than `min_keep_ratio` (0.5) x the rows it replaces. Reruns replace,
-  never duplicate; other model versions' rows stay as history. Write chunk by chunk, so Cloud
-  Run tasks writing their own chunks never replace each other's.
-- `chunk_done(f, t)` notes the chunk finished (an empty object under
+  never duplicate; other model versions' rows stay as history. Each Cloud Run task writes its
+  own dates, so tasks never replace each other's.
+- `chunk_done(f, t)` notes the window finished (an empty object under
   `.bundle/<bundle>/serve_progress/` in the bundle's bucket), and `task_chunks` leaves out
-  the chunks the run already noted. Without it a repair scores the whole window again.
+  the windows the run already noted. A window is published whole, so an unfinished one is
+  scored again from its first batch.
 - Anything after scoring that spans models, or should rerun on its own, is a later task
   (`depends_on`) reading the tables the models wrote.
 
@@ -731,7 +932,7 @@ are strings or integers: a date key such as `snapshot_date` is a `'YYYY-MM-DD'` 
 | `get_features_in_range(start, end)` / `read_table` | `fv.get_features_in_range(start, end, where=)`: every row in the window |
 | `create_training_set(df, lookups, exclude_columns=)` / `get_features_for_events(events)` | `fs.create_training_set(events, features, exclude_columns=)` (or `feature_service=`); `fs.get_features_for_events(...)` is its `load_df()`. The events' timestamp column is `event_timestamp` unless `timestamp_key=` says otherwise |
 | `df.filter(...)` on the spine before `create_training_set` | `fv.spine(start, end, where="cost > 0")`: the view's own rows (keys and timestamp); the SQL condition is applied in the spine's own read, so a dropped row is never joined or downloaded |
-| `training_set.load_df().write.parquet(path)` | `ts.write_parquet(path)`: the result streams to the file batch by batch, so memory stays at a batch, not the window |
+| `training_set.load_df().write.parquet(path)` | `ts.write_parquet(path)`: a local file streams batch by batch, so memory stays at a batch, not the window. A `gs://.../` directory (BigQuery): the result table exported as `part-*.parquet`, each readable on its own so a fanned-out step reads a share; returns their URIs, refuses a directory holding files (Databricks' default mode). `read_parquet(parts, float32=)` reads them as `load_df()` returns rows (BigQuery's export has no float32 and drops TIMESTAMP's UTC) |
 | the table's schema | `fv.table_schema()`: the live table's columns and types, metadata only |
 | `FeatureService` / feature spec + `log_model` | `FeatureService(name, features, spine_inputs=)`, saved with `svc.save(model_dir)` wherever the model artifact goes, or `mlflow.pyfunc.log_model(..., feature_spec=svc)`; `load_model(...).metadata.feature_spec` reads it back |
 | `BatchFeatureView` with a transformation and `Aggregate`s | `fs.batch_feature_view(name, source, stage, at_days=)`: a features.yaml's `aggregations` and `transforms` (feature_manager), computed in the training set's query |
@@ -777,6 +978,27 @@ viewer, Run viewer, Vertex AI viewer and `compute.machineTypes.get`. Prices come
 catalog when the console's project has the Cloud Billing API (`cloudbilling.googleapis.com`)
 enabled, else from the snapshot bundled with the release (`console/price_snapshot.json`), and
 the page says which.
+
+### Where BigQuery's cost comes from
+
+The page's **BigQuery: where it comes from** section reads every user's query jobs of the window
+(`INFORMATION_SCHEMA.JOBS_BY_PROJECT`, with `roles/bigquery.resourceViewer`; without it only the
+console's own, and the page says so) and puts each on:
+
+- **What ran it**: a tree. Platform > bundle > job > task > dbt model, for the platform's
+  executions (`mlops_exec`) and its dbt_tasks' commands (`dbt_invocation_id`, matched to the
+  run_results the task kept); dbt run elsewhere > profile.target > user > model; other queries
+  > user. A job level opens its Job page.
+- **Tables built**: a job's whole cost goes to the table it wrote, so these add up.
+- **Tables read**: BigQuery bills a job, not the tables it reads, so a table's figure is the whole
+  cost of the jobs that read it; a job reading several tables counts in each.
+- **Models**: each serving version's feature and label tables (its `train_window.json`) and
+  everything upstream of them, followed back through the jobs that wrote each table (a job that
+  read S and wrote T is the edge S -> T), each table's build cost once. A table nothing in the
+  window wrote (a view, or one loaded outside query jobs) is named as not followed.
+
+A Catalog table's **Cost** tab shows the same for one table: its build cost by day and by whom,
+who read it, and what everything upstream of it cost to build.
 
 ## Notebooks: the console's Notebooks, Workspace and editor
 
@@ -945,6 +1167,47 @@ on your gcloud credentials, so they need no console URL or IAP token:
   (`--step gate-op`), printed. KFP's executor_input dump and the runtime's warnings are
   dropped; `--raw` keeps them.
 
+**One trace per run.** Every container a run starts gets the run's Cloud Trace id
+(`MLOPS_TRACE`, the run id's 32 hex digits) and its task key (`MLOPS_TASK`), and a
+`batch_serve_task`'s runner passes both to its models' jobs. `mlops-task` prints each line
+of its own and of the command it runs as Cloud Run structured logging: the line as
+`message`, plus the trace and an `mlops_task` label. A line's severity stays unset, as for
+plain text, and a line that is already a JSON object keeps its own fields. So the
+containers a runner starts, which no log of the run names, are still found:
+`logs`, `why`, `inspect` and the console read them with
+`trace="projects/<project>/traces/<id>" AND labels.mlops_task="<task>"`, and in Logs
+Explorer "Show entries for this trace" lists a run's lines from every container. No IAM
+beyond writing logs. An image built before this ignores both variables, as before.
+
+- `mlops bundle cancel <job> --run <id>`: cancels the run and every container and child run
+  it started.
+
+**The workspace from anywhere, as the Databricks CLI.** Besides `bundle`, `mlops` has the
+Databricks CLI's groups over every deployed bundle, from any directory (no `mlops.yaml`), as
+you: each is the console's own backend call on your Application Default Credentials, so GCP's
+IAM decides what you may change. `-o json` gives the whole answer.
+
+| Group | Commands |
+|---|---|
+| `mlops inspect LINK` | What a console link (job, run, task, table, model version, monitor, ...), a Workflows execution or Vertex pipeline link, a BigQuery job id (`project:location.job_id`) or `project.dataset.table` names; a failed run or task comes with its failure chain, error and log tail |
+| `jobs` | `list [--target]`, `get`, `list-runs`, `get-run`, `get-run-output [--task K] [--step S]`, `why`, `run-now [--params] [--only]`, `cancel-run`, `cancel-all-runs`, `repair-run`, `pause`, `resume`, `delete` (a retired job). A job is its Workflow name or link; a run is its link, or the job and the run id |
+| `clusters`, `cluster-policies` | Notebook compute: Colab runtimes (`list`, `get`, `create --template`, `start`, `stop`, `delete`) and their templates |
+| `schemas`, `tables`, `lineage` | BigQuery datasets; tables (`list`, `get`, `sample`); lineage one hop up and down |
+| `experiments`, `registered-models`, `model-versions`, `serving-endpoints`, `feature-groups` | The ML resources, with `set-alias` / `delete-alias` on models |
+| `quality-monitors` | `list TABLE`, `get`, `list-refreshes`, `run-refresh` (a monitor is `BUNDLE/TARGET/KEY` or its dashboard link) |
+| `deployments` | Each bundle's deploys per target |
+
+```bash
+mlops inspect https://<console>/jobs/demo-model-retrain-dev/runs/c9590ada-...   # what failed, and why
+mlops jobs get-run-output <run link> --task train --step prepare-op        # that step's log
+mlops jobs cancel-run <run link>
+```
+
+The same reads are MCP tools (`mlops-mcp`, also installed as `mlops-notebooks-mcp`):
+`inspect`, `list_jobs`, `job_runs`, `why_failed`, `task_logs`, and `run_job`, `cancel_run`,
+`repair_run`, which change things. Paste a link into Claude and ask: it calls `inspect` instead
+of writing a script or searching logs.
+
 **Repairs are attempts of one run**, as in Databricks. A repair is a new execution of the job's
 Workflow from the run's latest attempt: the tasks that succeeded are reused, the rest run
 again. Its argument names the run (`repair_of`) and its number (`repair_id`), so every
@@ -1031,6 +1294,12 @@ pip install --index-url "https://__token__:<token>@git.example.com/api/v4/projec
 
 Open as of 2026-10-19; remove each once fixed.
 
+- **Quality monitors haven't run as a deployed job.** Profiling, probability and fairness
+  metrics, custom drift and anomaly detection were validated in BigQuery by
+  calling the refresh directly with a developer's credentials, not through deploy and the
+  `<key>-monitor` job's service account. What that account needs beyond BigQuery Data Editor on
+  the output dataset (for `AI.DETECT_ANOMALIES`) is unverified. Anomaly detection has run on
+  synthetic data only.
 - **The notebook editor rests on behaviour Google doesn't document.** Colab's proxy taking the
   runtime owner's bearer token with its tunnel cookie (for REST and the kernel's WebSocket) was
   verified by hand on 2026-10-19; if Google changes it, cells stop running in the console
@@ -1047,7 +1316,9 @@ Open as of 2026-10-19; remove each once fixed.
 - `continuous`, the beta `triggers` list, task values, `sql_task`,
   `pipeline_task`, serverless `environments`, `git_source`, `permissions` and `lifecycle`;
   streaming and maintenance notifications; task-level `health`.
-- `pipelines`, `quality_monitors`, `apps` and the other resources; experiment `tags` and
+- `pipelines`, `apps` and the other resources; a quality monitor's `data_classification_config`;
+  Databricks' schema-level anomaly detection (`data_quality_monitors`: freshness and
+  completeness); alerts on anomalies; experiment `tags` and
   `artifact_location`; registered model `schema_name` and `grants`; endpoint `ai_gateway`,
   `environment_vars`, provisioned concurrency and throughput.
 - Discord: a webhook notification is a Cloud Monitoring channel, which can't post to Discord

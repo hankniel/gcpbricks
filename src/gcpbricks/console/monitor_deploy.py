@@ -2,13 +2,14 @@
 `console-monitors`, per target, deployed by the console as any bundle deploys.
 
 The bundle's settings (project, region, bucket, mode) and the account everything runs as are
-demo-model's on that target, read from its deployment record. The monitors themselves live in
+those of the bundle MLOPS_MONITORS_SETTINGS_FROM names, on that target, read from its
+deployment record. Unset, the console creates no monitors (a bundle's own still show). The monitors themselves live in
 console-monitors' own deployment record (each monitor's `config`), so a create, update or delete
 reads them there, changes one, and deploys the whole bundle again.
 
 The deploy runs `mlops bundle deploy` in a child process as whoever acts, as the console's
 other writes do: a user with their own GCP access token (their roles decide, and audit logs
-name them), an admin as the console's own account. The refresh jobs run as demo-model's
+name them), an admin as the console's own account. The refresh jobs run as that bundle's
 run_as account either way."""
 from __future__ import annotations
 
@@ -24,8 +25,8 @@ import yaml
 from gcpbricks.console import bundles as BN
 
 BUNDLE = "console-monitors"
-#: Whose settings and account console-monitors takes, per target.
-SOURCE = "demo-model"
+#: Whose settings and account console-monitors takes, per target (a deployed bundle's name).
+SOURCE = os.environ.get("MLOPS_MONITORS_SETTINGS_FROM", "")
 #: How long a deploy may take: terraform applying a few Workflows and Cloud Run jobs.
 TIMEOUT = 900
 
@@ -35,6 +36,9 @@ def _settings_from(record: dict) -> dict:
 
 
 def _settings(gcp, target: str) -> dict:
+    if not SOURCE:
+        raise ValueError("console monitors are off: set MLOPS_MONITORS_SETTINGS_FROM to the bundle whose "
+                         "settings and run_as account they deploy with")
     d = BN.deployment(gcp, SOURCE, target)
     if not d or not d.get("run_as"):
         raise ValueError(f"{SOURCE} has no deployment record on {target}: console-monitors takes its settings from it")
@@ -42,7 +46,9 @@ def _settings(gcp, target: str) -> dict:
 
 
 def targets(gcp) -> list[str]:
-    """The targets a console monitor can be created on: those demo-model is deployed to."""
+    """The targets a console monitor can be created on: those SOURCE is deployed to."""
+    if not SOURCE:
+        return []
     return sorted(d["target"] for d in BN.deployments(gcp) if d["bundle"] == SOURCE and d.get("run_as"))
 
 
@@ -58,7 +64,7 @@ def monitors(gcp, target: str) -> dict[str, dict]:
 
 
 def bundle_yaml(settings: dict, target: str, quality_monitors: dict[str, dict]) -> str:
-    """console-monitors' mlops.yaml: one target, demo-model's settings and account."""
+    """console-monitors' mlops.yaml: one target, SOURCE's settings and account."""
     doc = {"bundle": {"name": BUNDLE, "mlops_version": "latest"},
            "gcp": {"project": settings["project"], "region": settings["region"], "bucket": settings["bucket"]},
            "run_as": {"service_principal_name": settings["run_as"]},

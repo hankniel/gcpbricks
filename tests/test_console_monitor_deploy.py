@@ -1,5 +1,5 @@
 """Console-created quality monitors: the console-monitors bundle they deploy as, on
-demo-model's settings and account, and create / update / delete over its recorded monitors."""
+the settings and account of the bundle MLOPS_MONITORS_SETTINGS_FROM names, and create / update / delete over its recorded monitors."""
 from __future__ import annotations
 
 import pytest
@@ -20,6 +20,7 @@ OTHER = {**SPEC, "table_name": "p.ds.other"}
 def records(monkeypatch):
     deps = [SOURCE, {"bundle": "console-monitors", "target": "dev",
                      "resources": {"quality_monitors": {"other": {"config": OTHER}}}}]
+    monkeypatch.setattr(MD, "SOURCE", "demo-model")
     monkeypatch.setattr(BN, "deployments", lambda gcp: deps)
     monkeypatch.setattr(BN, "deployment", lambda gcp, b, t: next(
         (d for d in deps if (d["bundle"], d["target"]) == (b, t)), None))
@@ -68,9 +69,18 @@ def test_delete_deploys_the_rest(records):
 
 
 def test_no_demo_model_record_means_no_console_monitors(monkeypatch):
+    monkeypatch.setattr(MD, "SOURCE", "demo-model")
     monkeypatch.setattr(BN, "deployment", lambda gcp, b, t: None)
     with pytest.raises(ValueError, match="takes its settings"):
         MD._settings(None, "prod")
+
+
+def test_no_settings_bundle_configured_means_no_console_monitors(monkeypatch):
+    monkeypatch.setattr(MD, "SOURCE", "")
+    monkeypatch.setattr(BN, "deployments", lambda gcp: [SOURCE])
+    assert MD.targets(None) == []
+    with pytest.raises(ValueError, match="MLOPS_MONITORS_SETTINGS_FROM"):
+        MD._settings(None, "dev")
 
 
 def test_a_deploy_acts_with_the_users_token_when_given(monkeypatch, records):

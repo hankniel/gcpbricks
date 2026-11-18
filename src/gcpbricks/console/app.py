@@ -14,6 +14,8 @@ Env:
   MLOPS_WORKSPACE               where workspace notebooks live (gs://<bucket>/workspace)
   MLOPS_BLOG                    where the blog's posts and images live (gs://<bucket>/blog)
   MLOPS_PLATFORM_GIT            this repo, which "Connect Claude" installs mlops-notebooks-mcp from
+  MLOPS_MONITORS_SETTINGS_FROM  the bundle whose settings and run_as console-created quality monitors
+                                deploy with (unset: the console creates none)
 """
 from __future__ import annotations
 
